@@ -1,0 +1,16 @@
+# Ignore virtual environment directory
+.venv/
+
+# Ignore docs directory
+docs/
+
+# Ignore config.json file and .env file in the process directory
+config.json
+process/.env
+
+# Ignore Python cache files
+__pycache__/
+
+# supabase cli
+supabase/.temp/cli-latest
+supabase/.branches/_current_branch
