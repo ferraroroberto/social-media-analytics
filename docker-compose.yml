@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # Content Performance Predictor API
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_RELOAD=true
+      - MODEL_PATH=./models
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./data:/app/data
+    command: ["uvicorn", "src.api.prediction_api:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    depends_on:
+      - mlflow
+
+  # Dashboard
+  dashboard:
+    build: .
+    ports:
+      - "8050:8050"
+    environment:
+      - API_URL=http://api:8000
+      - DASHBOARD_HOST=0.0.0.0
+      - DASHBOARD_PORT=8050
+      - DASHBOARD_DEBUG=true
+    volumes:
+      - ./data:/app/data
+    command: ["python", "dash_app/app.py"]
+    depends_on:
+      - api
+
+  # MLflow tracking server
+  mlflow:
+    image: python:3.11-slim
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_TRACKING_URI=http://localhost:5000
+    volumes:
+      - ./mlflow:/mlflow
+    command: >
+      bash -c "pip install mlflow &&
+               mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow/mlflow.db --default-artifact-root file:/mlflow"
+
+  # PostgreSQL (optional, for local development)
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=content_predictor
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    profiles:
+      - local
+
+volumes:
+  postgres_data:
