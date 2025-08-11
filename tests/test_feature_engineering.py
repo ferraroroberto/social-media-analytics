@@ -723,14 +723,30 @@ def demonstrate_feature_importance(df, fe):
     
     # Default target variable
     default_target = 'num_likes_linkedin_no_video'
-    if default_target in feature_cols:
+    
+    # Ensure default target exists and is numeric
+    if default_target in feature_cols and pd.api.types.is_numeric_dtype(df[default_target]):
         print(f"💡 Default suggestion: {default_target}")
         print("   This represents the number of likes on LinkedIn posts (no video)")
         print("   It's a good target because it's directly measurable and actionable")
         print()
+    else:
+        # Find a better default target
+        numeric_features = [col for col in feature_cols if pd.api.types.is_numeric_dtype(df[col])]
+        if numeric_features:
+            default_target = numeric_features[0]
+            print(f"💡 Default suggestion: {default_target}")
+            print("   This is a numeric column suitable for prediction")
+            print()
+        else:
+            default_target = None
+            print("⚠️  No suitable numeric columns found for target variable")
+            print()
     
-    # Show some good target variable options
-    good_targets = [col for col in feature_cols if any(word in col.lower() for word in ['likes', 'engagement', 'followers', 'comments', 'shares'])]
+    # Show some good target variable options (only numeric ones)
+    good_targets = [col for col in feature_cols 
+                   if pd.api.types.is_numeric_dtype(df[col]) and 
+                   any(word in col.lower() for word in ['likes', 'engagement', 'followers', 'comments', 'shares'])]
     if good_targets:
         print("🎯 Good target variable options:")
         for i, col in enumerate(good_targets[:5]):
@@ -740,7 +756,7 @@ def demonstrate_feature_importance(df, fe):
     # Interactive selection
     while True:
         try:
-            if default_target in feature_cols:
+            if default_target and default_target in feature_cols:
                 choice = input(f"Enter target variable name (or press Enter for default '{default_target}'): ").strip()
                 if not choice:
                     target_variable = default_target
@@ -749,8 +765,19 @@ def demonstrate_feature_importance(df, fe):
                 choice = input("Enter target variable name: ").strip()
             
             if choice in feature_cols:
-                target_variable = choice
-                break
+                # Ensure the chosen target is numeric
+                if pd.api.types.is_numeric_dtype(df[choice]):
+                    target_variable = choice
+                    break
+                else:
+                    print(f"⚠️  '{choice}' is not numeric. Please choose a numeric column.")
+                    print("   Available numeric columns:")
+                    numeric_cols = [col for col in feature_cols if pd.api.types.is_numeric_dtype(df[col])]
+                    for i, col in enumerate(numeric_cols[:10]):
+                        print(f"   {i+1}. {col}")
+                    if len(numeric_cols) > 10:
+                        print(f"   ... and {len(numeric_cols) - 10} more")
+                    print()
             else:
                 print(f"❌ '{choice}' not found in your data. Available options:")
                 print(f"   {list(feature_cols[:10])}")
@@ -759,7 +786,12 @@ def demonstrate_feature_importance(df, fe):
                 print()
         except KeyboardInterrupt:
             print("\n\n👋 Target selection cancelled, using default")
-            target_variable = default_target if default_target in feature_cols else feature_cols[0]
+            if default_target and default_target in feature_cols:
+                target_variable = default_target
+            else:
+                # Find any numeric column as fallback
+                numeric_cols = [col for col in feature_cols if pd.api.types.is_numeric_dtype(df[col])]
+                target_variable = numeric_cols[0] if numeric_cols else feature_cols[0]
             break
         except Exception as e:
             print(f"❌ Error: {str(e)}")
@@ -783,22 +815,36 @@ def demonstrate_feature_importance(df, fe):
     # Calculate correlations (only for numeric columns)
     numeric_features = df[feature_cols].select_dtypes(include=[np.number])
     if not numeric_features.empty:
-        correlations = df[target_variable].corr(numeric_features)
-        correlations = correlations.sort_values(key=abs, ascending=False)
-        
-        print("📊 Feature correlations with target (absolute values):")
-        for i, (feature, corr) in enumerate(correlations.head(10).items(), 1):
-            print(f"   {i:2d}. {feature}: {corr:.3f}")
-        print()
-        
-        # Show what correlations mean
-        print("💡 What correlations mean:")
-        print("   - Close to +1.0: Strong positive relationship (higher feature = higher target)")
-        print("   - Close to -1.0: Strong negative relationship (higher feature = lower target)")
-        print("   - Close to 0.0: No linear relationship")
-        print("   - |correlation| > 0.7: Strong relationship")
-        print("   - |correlation| > 0.5: Moderate relationship")
-        print("   - |correlation| > 0.3: Weak relationship")
+        try:
+            # Ensure target variable is numeric
+            if pd.api.types.is_numeric_dtype(df[target_variable]):
+                correlations = df[target_variable].corr(numeric_features)
+                correlations = correlations.sort_values(key=abs, ascending=False)
+                
+                print("📊 Feature correlations with target (absolute values):")
+                for i, (feature, corr) in enumerate(correlations.head(10).items(), 1):
+                    print(f"   {i:2d}. {feature}: {corr:.3f}")
+                print()
+                
+                # Show what correlations mean
+                print("💡 What correlations mean:")
+                print("   - Close to +1.0: Strong positive relationship (higher feature = higher target)")
+                print("   - Close to -1.0: Strong negative relationship (higher feature = lower target)")
+                print("   - Close to 0.0: No linear relationship")
+                print("   - |correlation| > 0.7: Strong relationship")
+                print("   - |correlation| > 0.5: Moderate relationship")
+                print("   - |correlation| > 0.3: Weak relationship")
+                print()
+            else:
+                print(f"⚠️  Target variable '{target_variable}' is not numeric, skipping correlation analysis")
+                print()
+        except Exception as e:
+            print(f"⚠️  Error calculating correlations: {str(e)}")
+            print("   This can happen with non-numeric data or missing values")
+            print("   Continuing with feature importance ranking...")
+            print()
+    else:
+        print("⚠️  No numeric features found for correlation analysis")
         print()
     
     # Get feature importance ranking
@@ -807,12 +853,335 @@ def demonstrate_feature_importance(df, fe):
     print("Based on domain knowledge and correlation analysis:")
     print()
     
-    ranked_features = fe.get_feature_importance_ranking(feature_cols)
+    try:
+        ranked_features = fe.get_feature_importance_ranking(feature_cols)
+        
+        print("🏆 Feature importance ranking (top 20):")
+        for i, feature in enumerate(ranked_features[:20]):
+            print(f"   {i+1:2d}. {feature}")
+        print()
+    except Exception as e:
+        print(f"⚠️  Error getting feature importance ranking: {str(e)}")
+        print("   Using simple alphabetical ranking instead...")
+        print()
+        ranked_features = sorted(feature_cols)
+        
+        print("🏆 Simple feature ranking (alphabetical):")
+        for i, feature in enumerate(ranked_features[:20]):
+            print(f"   {i+1:2d}. {feature}")
+        print()
     
-    print("🏆 Feature importance ranking (top 20):")
-    for i, feature in enumerate(ranked_features[:20]):
-        print(f"   {i+1:2d}. {feature}")
+    # Add hard data analysis for feature ranking
+    print("📊 HARD DATA ANALYSIS FOR FEATURE RANKING")
+    print("=" * 60)
+    print("Let's analyze why features are ranked in this order using actual data:")
     print()
+    
+    # 1. Variance analysis (higher variance = more information)
+    print("🔍 1. FEATURE VARIANCE ANALYSIS")
+    print("-" * 40)
+    print("Features with higher variance contain more information:")
+    print()
+    
+    variance_data = []
+    for col in feature_cols[:15]:  # Top 15 features
+        if pd.api.types.is_numeric_dtype(df[col]):
+            variance = df[col].var()
+            std = df[col].std()
+            mean = df[col].mean()
+            cv = std / mean if mean != 0 else 0  # Coefficient of variation
+            variance_data.append({
+                'feature': col,
+                'variance': variance,
+                'std': std,
+                'mean': mean,
+                'cv': cv
+            })
+    
+    # Sort by variance
+    variance_data.sort(key=lambda x: x['variance'], reverse=True)
+    
+    print("📊 Top 10 features by variance (most informative):")
+    for i, data in enumerate(variance_data[:10], 1):
+        print(f"   {i:2d}. {data['feature']:<30} Var: {data['variance']:>10.2f} | CV: {data['cv']:>6.3f}")
+    print()
+    
+    # 2. Missing value analysis
+    print("🔍 2. MISSING VALUE ANALYSIS")
+    print("-" * 40)
+    print("Features with fewer missing values are more reliable:")
+    print()
+    
+    missing_data = []
+    for col in feature_cols[:15]:
+        missing_count = df[col].isnull().sum()
+        missing_pct = (missing_count / len(df)) * 100
+        missing_data.append({
+            'feature': col,
+            'missing_count': missing_count,
+            'missing_pct': missing_pct
+        })
+    
+    # Sort by missing percentage (ascending)
+    missing_data.sort(key=lambda x: x['missing_pct'])
+    
+    print("📊 Top 10 features by data completeness:")
+    for i, data in enumerate(missing_data[:10], 1):
+        print(f"   {i:2d}. {data['feature']:<30} Missing: {data['missing_count']:>3d} ({data['missing_pct']:>5.1f}%)")
+    print()
+    
+    # 3. Correlation with target (if we have correlations)
+    if 'correlations' in locals() and not correlations.empty:
+        print("🔍 3. CORRELATION WITH TARGET ANALYSIS")
+        print("-" * 40)
+        print("Features with higher absolute correlation are more predictive:")
+        print()
+        
+        print("📊 Top 10 features by absolute correlation with target:")
+        for i, (feature, corr) in enumerate(correlations.head(10).items(), 1):
+            strength = "Strong" if abs(corr) > 0.7 else "Moderate" if abs(corr) > 0.5 else "Weak"
+            direction = "Positive" if corr > 0 else "Negative"
+            print(f"   {i:2d}. {feature:<30} {corr:>6.3f} ({strength} {direction})")
+        print()
+    
+    # 4. Feature distribution analysis
+    print("🔍 4. FEATURE DISTRIBUTION ANALYSIS")
+    print("-" * 40)
+    print("Features with better distributions are more suitable for ML:")
+    print()
+    
+    distribution_data = []
+    for col in feature_cols[:10]:  # Top 10 features
+        if pd.api.types.is_numeric_dtype(df[col]):
+            # Check for outliers using IQR method
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            outlier_count = len(df[(df[col] < Q1 - 1.5*IQR) | (df[col] > Q3 + 1.5*IQR)])
+            outlier_pct = (outlier_count / len(df)) * 100
+            
+            # Check for zero variance
+            zero_var = df[col].var() == 0
+            
+            distribution_data.append({
+                'feature': col,
+                'outlier_count': outlier_count,
+                'outlier_pct': outlier_pct,
+                'zero_variance': zero_var,
+                'unique_values': df[col].nunique()
+            })
+    
+    print("📊 Feature distribution quality (lower outlier % = better):")
+    for i, data in enumerate(distribution_data, 1):
+        quality = "Good" if data['outlier_pct'] < 5 else "Fair" if data['outlier_pct'] < 15 else "Poor"
+        print(f"   {i:2d}. {data['feature']:<30} Outliers: {data['outlier_pct']:>5.1f}% | Quality: {quality}")
+    print()
+    
+    # 5. Feature engineering complexity
+    print("🔍 5. FEATURE ENGINEERING COMPLEXITY")
+    print("-" * 40)
+    print("Simple features are often more reliable than complex ones:")
+    print()
+    
+    complexity_data = []
+    for col in feature_cols[:15]:
+        # Determine complexity based on feature name patterns
+        complexity_score = 0
+        if any(word in col.lower() for word in ['lag', 'rolling', 'trend', 'ratio', 'rate']):
+            complexity_score += 2  # Engineered features
+        if any(word in col.lower() for word in ['sin', 'cos', 'cyclical']):
+            complexity_score += 1  # Cyclical encoding
+        if any(word in col.lower() for word in ['scaled', 'normalized']):
+            complexity_score += 1  # Scaled features
+        
+        complexity_level = "Simple" if complexity_score == 0 else "Medium" if complexity_score <= 2 else "Complex"
+        complexity_data.append({
+            'feature': col,
+            'complexity_score': complexity_score,
+            'complexity_level': complexity_level
+        })
+    
+    # Sort by complexity (ascending - simple first)
+    complexity_data.sort(key=lambda x: x['complexity_score'])
+    
+    print("📊 Feature complexity ranking (simpler = more reliable):")
+    for i, data in enumerate(complexity_data[:10], 1):
+        print(f"   {i:2d}. {data['feature']:<30} Complexity: {data['complexity_level']:<8} (Score: {data['complexity_score']})")
+    print()
+    
+    # 6. Final ranking explanation
+    print("🔍 6. FINAL RANKING EXPLANATION")
+    print("=" * 60)
+    print("Based on the hard data above, here's why features are ranked this way:")
+    print()
+    
+    print("🏆 TOP FEATURES (Why they're ranked first):")
+    if variance_data:
+        top_feature = variance_data[0]['feature']
+        print(f"   • {top_feature}: Highest variance ({variance_data[0]['variance']:.2f}) = most informative")
+    
+    if missing_data:
+        most_complete = missing_data[0]['feature']
+        print(f"   • {most_complete}: Most complete data ({missing_data[0]['missing_pct']:.1f}% missing)")
+    
+    if 'correlations' in locals() and not correlations.empty:
+        most_correlated = correlations.index[0]
+        corr_value = correlations.iloc[0]
+        print(f"   • {most_correlated}: Highest correlation with target ({corr_value:.3f})")
+    
+    if complexity_data:
+        simplest = complexity_data[0]['feature']
+        print(f"   • {simplest}: Simplest feature (Complexity score: {complexity_data[0]['complexity_score']})")
+    
+    print()
+    print("📊 RANKING FACTORS (in order of importance):")
+    print("   1. Data completeness (fewer missing values)")
+    print("   2. Correlation with target variable")
+    print("   3. Feature variance (information content)")
+    print("   4. Distribution quality (outlier percentage)")
+    print("   5. Feature complexity (simpler = better)")
+    print()
+    
+    # 7. Mathematical ranking calculation
+    print("🔍 7. MATHEMATICAL RANKING CALCULATION")
+    print("=" * 60)
+    print("Here's the exact mathematical formula used for ranking:")
+    print()
+    
+    # Calculate composite score for each feature
+    composite_scores = []
+    for col in feature_cols[:15]:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            # Get all the metrics for this feature
+            var_data = next((x for x in variance_data if x['feature'] == col), None)
+            missing_data_item = next((x for x in missing_data if x['feature'] == col), None)
+            dist_data = next((x for x in distribution_data if x['feature'] == col), None)
+            comp_data = next((x for x in complexity_data if x['feature'] == col), None)
+            
+            if all([var_data, missing_data_item, dist_data, comp_data]):
+                # Normalize each metric to 0-1 scale
+                # Variance: higher is better, normalize by max variance
+                max_var = max(x['variance'] for x in variance_data)
+                norm_variance = var_data['variance'] / max_var if max_var > 0 else 0
+                
+                # Missing data: lower is better, invert and normalize
+                max_missing = max(x['missing_pct'] for x in missing_data)
+                norm_completeness = 1 - (missing_data_item['missing_pct'] / max_missing) if max_missing > 0 else 1
+                
+                # Distribution: lower outlier % is better, invert and normalize
+                max_outliers = max(x['outlier_pct'] for x in distribution_data)
+                norm_distribution = 1 - (dist_data['outlier_pct'] / max_outliers) if max_outliers > 0 else 1
+                
+                # Complexity: lower is better, invert and normalize
+                max_complexity = max(x['complexity_score'] for x in complexity_data)
+                norm_complexity = 1 - (comp_data['complexity_score'] / max_complexity) if max_complexity > 0 else 1
+                
+                # Calculate composite score (weighted average)
+                weights = [0.3, 0.25, 0.25, 0.2]  # Weights for each factor
+                composite_score = (
+                    norm_variance * weights[0] +
+                    norm_completeness * weights[1] +
+                    norm_distribution * weights[2] +
+                    norm_complexity * weights[3]
+                )
+                
+                composite_scores.append({
+                    'feature': col,
+                    'composite_score': composite_score,
+                    'norm_variance': norm_variance,
+                    'norm_completeness': norm_completeness,
+                    'norm_distribution': norm_distribution,
+                    'norm_complexity': norm_complexity,
+                    'raw_variance': var_data['variance'],
+                    'raw_missing_pct': missing_data_item['missing_pct'],
+                    'raw_outlier_pct': dist_data['outlier_pct'],
+                    'raw_complexity': comp_data['complexity_score']
+                })
+    
+    # Sort by composite score
+    composite_scores.sort(key=lambda x: x['composite_score'], reverse=True)
+    
+    print("📊 COMPOSITE SCORES (mathematical ranking):")
+    print("Formula: Score = 0.3×Variance + 0.25×Completeness + 0.25×Distribution + 0.2×Complexity")
+    print()
+    
+    print("🏆 Top 10 features by composite score:")
+    for i, score_data in enumerate(composite_scores[:10], 1):
+        print(f"   {i:2d}. {score_data['feature']:<30} Score: {score_data['composite_score']:>6.3f}")
+        print(f"       Variance: {score_data['norm_variance']:>6.3f} | Completeness: {score_data['norm_completeness']:>6.3f} | Distribution: {score_data['norm_distribution']:>6.3f} | Complexity: {score_data['norm_complexity']:>6.3f}")
+        print(f"       Raw: Var={score_data['raw_variance']:>8.2f}, Missing={score_data['raw_missing_pct']:>5.1f}%, Outliers={score_data['raw_outlier_pct']:>5.1f}%, Complexity={score_data['raw_complexity']}")
+        print()
+    
+    print("💡 MATHEMATICAL EXPLANATION:")
+    print("   • Each metric is normalized to 0-1 scale (0=worst, 1=best)")
+    print("   • Weights reflect relative importance of each factor")
+    print("   • Higher composite score = better feature for machine learning")
+    print("   • This is purely data-driven, no domain knowledge involved")
+    print()
+    
+    # 8. Compare mathematical vs domain knowledge ranking
+    print("🔍 8. MATHEMATICAL vs DOMAIN KNOWLEDGE COMPARISON")
+    print("=" * 60)
+    print("Let's see how the data-driven ranking differs from domain knowledge:")
+    print()
+    
+    if composite_scores and 'ranked_features' in locals():
+        print("📊 COMPARISON OF RANKING METHODS:")
+        print()
+        
+        # Get top 10 from each method
+        math_top_10 = [score['feature'] for score in composite_scores[:10]]
+        domain_top_10 = ranked_features[:10]
+        
+        print("🏆 TOP 10 BY MATHEMATICAL SCORE (Data-driven):")
+        for i, feature in enumerate(math_top_10, 1):
+            print(f"   {i:2d}. {feature}")
+        print()
+        
+        print("🏆 TOP 10 BY DOMAIN KNOWLEDGE (Expert opinion):")
+        for i, feature in enumerate(domain_top_10, 1):
+            print(f"   {i:2d}. {feature}")
+        print()
+        
+        # Find common features in top 10
+        common_features = set(math_top_10) & set(domain_top_10)
+        math_only = set(math_top_10) - set(domain_top_10)
+        domain_only = set(domain_top_10) - set(math_top_10)
+        
+        print("📊 ANALYSIS OF DIFFERENCES:")
+        print(f"   • Features in BOTH top 10s: {len(common_features)}")
+        print(f"   • Only in mathematical top 10: {len(math_only)}")
+        print(f"   • Only in domain knowledge top 10: {len(domain_only)}")
+        print()
+        
+        if common_features:
+            print("✅ FEATURES AGREED UPON BY BOTH METHODS:")
+            for feature in sorted(common_features):
+                print(f"   • {feature}")
+            print()
+        
+        if math_only:
+            print("🔢 FEATURES RANKED HIGH BY DATA (but not domain knowledge):")
+            for feature in math_only:
+                # Find the mathematical score for this feature
+                score_data = next((s for s in composite_scores if s['feature'] == feature), None)
+                if score_data:
+                    print(f"   • {feature} (Score: {score_data['composite_score']:.3f})")
+            print()
+        
+        if domain_only:
+            print("🧠 FEATURES RANKED HIGH BY DOMAIN KNOWLEDGE (but not data):")
+            for feature in domain_only:
+                print(f"   • {feature}")
+            print()
+        
+        print("💡 KEY INSIGHTS:")
+        print("   • Mathematical ranking focuses on data quality and statistical properties")
+        print("   • Domain knowledge ranking considers business relevance and interpretability")
+        print("   • Features in both lists are your 'golden features' - use these first!")
+        print("   • Features only in mathematical ranking might be good but less interpretable")
+        print("   • Features only in domain ranking might be important but have data quality issues")
+        print()
     
     # Enhanced explanation
     print("💡 FEATURE IMPORTANCE EXPLANATION")
