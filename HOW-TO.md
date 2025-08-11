@@ -89,6 +89,84 @@ cp .env.example .env
 # Edit .env with your Supabase credentials
 ```
 
+**How to get your Supabase credentials:**
+
+1. **Go to your Supabase Dashboard:**
+   - Visit [supabase.com](https://supabase.com) and sign in
+   - Navigate to your project: `project-name`
+
+2. **Get your API keys:**
+   - In your project dashboard, go to **Settings** (gear icon) in the left sidebar
+   - Click on **API** in the settings menu
+   - You'll see three keys:
+     - **Project URL** → Copy to `SUPABASE_URL`
+     - **anon public** → Copy to `SUPABASE_KEY` 
+     - **service_role secret** → Copy to `SUPABASE_SERVICE_ROLE_KEY`
+
+3. **Update your .env file:**
+```bash
+# Supabase Configuration
+SUPABASE_URL=https://project-name.supabase.co
+SUPABASE_KEY=your_anon_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+```
+
+**⚠️ Important:** The service role key bypasses all security policies, so keep it secret and never commit it to version control!
+
+### 4. **Test Your Connection**
+
+Now let's verify everything is working! Here's how to test your Supabase connection:
+
+**Step 1: Create the test file**
+- In your `social-media-analytics` directory, create `test_supabase_connection.py`
+- Copy the test script code from the project files (it's already created for you)
+
+**Step 2: Install required packages**
+```bash
+pip install python-dotenv supabase pandas
+```
+
+**Step 3: Run the test**
+```bash
+python test_supabase_connection.py
+```
+
+**What the test does:**
+- ✅ **Connects to Supabase** using your credentials
+- 🔍 **Checks 6 key tables** (posts, profile, platform-specific tables)
+- 📊 **Shows table structure** (column names and types)
+- 📈 **Displays sample data** (first few records)
+- 🔢 **Counts total records** in each table
+
+**Expected output:**
+```
+🚀 Supabase Connection Test
+========================================
+🔌 Connecting to Supabase...
+   URL: https://ttowzuaoniujsecuiaua.supabase.co
+   Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+✅ Connection successful!
+
+🔍 Checking 6 tables...
+
+📊 Table: posts
+==================================================
+   Columns (45):
+     - date: str
+     - num_likes_linkedin_no_video: int
+     - num_comments_linkedin_no_video: int
+     ...
+```
+
+**Success indicators:**
+- ✅ **Connection successful** message appears
+- 📊 **Table structures** are displayed
+- 📈 **Sample data** is shown (even if some tables are empty)
+
+**If the test passes:** You're ready to start the project! 🎉
+
+**If you get errors:** Check your `.env` file and make sure all keys are correct.
+
 **What the data looks like:**
 The `posts` table has columns like:
 - `num_likes_linkedin_no_video` - engagement metrics
