@@ -11,9 +11,13 @@ process/.env
 # Ignore Python cache files
 __pycache__/
 
+# Ignore catboost_info directory with learning data
+catboost_info/
+
 # supabase cli
 supabase/.temp/cli-latest
 supabase/.branches/_current_branch
 
 # Ignore .env file
 .env
+
