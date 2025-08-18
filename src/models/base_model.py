@@ -58,9 +58,23 @@ class BaseModel(ABC, BaseEstimator):
         if self.feature_columns:
             X = X[self.feature_columns]
         
-        # Remove any rows with missing values
-        mask = ~(X.isnull().any(axis=1) | y.isnull())
-        X_clean = X[mask]
+        # Handle different column types
+        X_clean = X.copy()
+        for col in X_clean.columns:
+            if X_clean[col].dtype in ['int64', 'float64']:
+                # For numeric columns, fill missing values with median
+                median_val = X_clean[col].median()
+                if pd.isna(median_val):
+                    median_val = 0
+                X_clean[col] = X_clean[col].fillna(median_val)
+            else:
+                # For categorical/string columns, encode all values as categories
+                X_clean[col] = X_clean[col].fillna('missing')
+                X_clean[col] = pd.Categorical(X_clean[col]).codes
+        
+        # Remove any rows with missing target values
+        mask = ~y.isnull()
+        X_clean = X_clean[mask]
         y_clean = y[mask]
         
         if len(X_clean) == 0:
@@ -94,8 +108,19 @@ class BaseModel(ABC, BaseEstimator):
         if self.feature_columns:
             X = X[self.feature_columns]
         
-        # Handle missing values
-        X_clean = X.fillna(X.mean())
+        # Handle different column types
+        X_clean = X.copy()
+        for col in X_clean.columns:
+            if X_clean[col].dtype in ['int64', 'float64']:
+                # For numeric columns, fill missing values with median
+                median_val = X_clean[col].median()
+                if pd.isna(median_val):
+                    median_val = 0
+                X_clean[col] = X_clean[col].fillna(median_val)
+            else:
+                # For categorical/string columns, encode all values as categories
+                X_clean[col] = X_clean[col].fillna('missing')
+                X_clean[col] = pd.Categorical(X_clean[col]).codes
         
         try:
             predictions = self.model.predict(X_clean)
