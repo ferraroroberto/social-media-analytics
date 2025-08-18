@@ -10,11 +10,20 @@ from sklearn.svm import SVR
 from sklearn.neural_network import MLPRegressor
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
+import lightgbm as lgb
 from catboost import CatBoostRegressor
 from .base_model import BaseModel
 
 logger = logging.getLogger(__name__)
 
+# Suppress LightGBM logging completely
+class SilentLogger:
+    def info(self, msg):
+        pass
+    def warning(self, msg):
+        pass
+
+lgb.register_logger(SilentLogger())
 
 class RandomForestModel(BaseModel):
     """Random Forest model for content performance prediction."""
@@ -196,8 +205,7 @@ class SVRModel(BaseModel):
         default_params = {
             'kernel': 'rbf',
             'C': 1.0,
-            'epsilon': 0.1,
-            'random_state': 42
+            'epsilon': 0.1
         }
         default_params.update(self.model_params)
         return SVR(**default_params)
@@ -251,6 +259,13 @@ class EnsembleModel(BaseModel):
         self.base_models = base_models or []
         self.weights = weights or []
         self.is_fitted = False
+    
+    def _create_model(self) -> None:
+        """
+        Create the underlying model instance.
+        For ensemble models, this is not needed as we use base models.
+        """
+        return None
     
     def add_model(self, model: BaseModel, weight: float = 1.0) -> None:
         """

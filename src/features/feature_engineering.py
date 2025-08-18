@@ -40,6 +40,14 @@ class FeatureEngineer:
             logger.warning(f"Date column {date_col} not found")
             return df
         
+        # Handle missing dates
+        if df[date_col].isnull().any():
+            logger.warning(f"Found {df[date_col].isnull().sum()} missing dates, filling with forward fill")
+            df[date_col] = df[date_col].fillna(method='ffill')
+            # If still have missing values at the beginning, fill with backward fill
+            if df[date_col].isnull().any():
+                df[date_col] = df[date_col].fillna(method='bfill')
+        
         df[date_col] = pd.to_datetime(df[date_col])
         
         # Basic temporal features
@@ -87,13 +95,20 @@ class FeatureEngineer:
         for col in target_cols:
             if col in df.columns:
                 for lag in lags:
+                    # Create lag features
                     df[f'{col}_lag_{lag}'] = df[col].shift(lag)
                     
-                    # Rolling statistics
+                    # Rolling statistics with min_periods=1 to avoid NaN
                     df[f'{col}_rolling_mean_{lag}'] = df[col].rolling(window=lag, min_periods=1).mean()
                     df[f'{col}_rolling_std_{lag}'] = df[col].rolling(window=lag, min_periods=1).std()
                     df[f'{col}_rolling_min_{lag}'] = df[col].rolling(window=lag, min_periods=1).min()
                     df[f'{col}_rolling_max_{lag}'] = df[col].rolling(window=lag, min_periods=1).max()
+                    
+                    # Fill NaN values in lag features with appropriate defaults
+                    df[f'{col}_lag_{lag}'] = df[f'{col}_lag_{lag}'].fillna(df[col].median())
+                    
+                    # Fill any remaining NaN values in rolling features
+                    df[f'{col}_rolling_std_{lag}'] = df[f'{col}_rolling_std_{lag}'].fillna(0)
         
         logger.info(f"Created lag features for {len(target_cols)} columns with lags {lags}")
         return df
@@ -121,7 +136,9 @@ class FeatureEngineer:
             
             if engagement_cols and follower_col in df.columns:
                 for col in engagement_cols:
+                    # Handle division by zero and missing values
                     df[f'{col}_rate'] = df[col] / df[follower_col].replace(0, 1)
+                    df[f'{col}_rate'] = df[f'{col}_rate'].fillna(0)
             
             # Engagement ratio features
             for content_type in ['no_video', 'video']:
@@ -130,14 +147,18 @@ class FeatureEngineer:
                 shares_col = f'num_reshares_{platform}_{content_type}'
                 
                 if likes_col in df.columns and comments_col in df.columns:
+                    # Handle division by zero and missing values
                     df[f'{platform}_{content_type}_comment_ratio'] = (
                         df[comments_col] / df[likes_col].replace(0, 1)
                     )
+                    df[f'{platform}_{content_type}_comment_ratio'] = df[f'{platform}_{content_type}_comment_ratio'].fillna(0)
                 
                 if likes_col in df.columns and shares_col in df.columns:
+                    # Handle division by zero and missing values
                     df[f'{platform}_{content_type}_share_ratio'] = (
                         df[shares_col] / df[likes_col].replace(0, 1)
                     )
+                    df[f'{platform}_{content_type}_share_ratio'] = df[f'{platform}_{content_type}_share_ratio'].fillna(0)
         
         logger.info("Created engagement features")
         return df
@@ -172,9 +193,11 @@ class FeatureEngineer:
                 for platform in platforms:
                     col = f'engagement_{platform}_{content_type}'
                     if col in df.columns:
+                        # Handle division by zero and missing values
                         df[f'{platform}_share_{content_type}'] = (
                             df[col] / df[f'total_engagement_{content_type}'].replace(0, 1)
                         )
+                        df[f'{platform}_share_{content_type}'] = df[f'{platform}_share_{content_type}'].fillna(0)
         
         # Cross-platform follower features
         follower_cols = [f'num_followers_{platform}' for platform in platforms]
@@ -185,6 +208,9 @@ class FeatureEngineer:
             df['avg_followers'] = df[available_follower_cols].mean(axis=1)
             df['max_followers'] = df[available_follower_cols].max(axis=1)
             df['follower_std'] = df[available_follower_cols].std(axis=1)
+            
+            # Fill NaN values in follower features
+            df['follower_std'] = df['follower_std'].fillna(0)
         
         logger.info("Created cross-platform features")
         return df
@@ -204,9 +230,9 @@ class FeatureEngineer:
         
         if text_col and text_col in df.columns:
             # Text length features
-            df[f'{text_col}_length'] = df[text_col].str.len()
-            df[f'{text_col}_word_count'] = df[text_col].str.split().str.len()
-            df[f'{text_col}_char_count'] = df[text_col].str.replace(' ', '').str.len()
+            df[f'{text_col}_length'] = df[text_col].str.len().fillna(0)
+            df[f'{text_col}_word_count'] = df[text_col].str.split().str.len().fillna(0)
+            df[f'{text_col}_char_count'] = df[text_col].str.replace(' ', '').str.len().fillna(0)
             
             # Sentiment analysis
             df[f'{text_col}_sentiment'] = df[text_col].apply(self._get_sentiment)
@@ -215,11 +241,12 @@ class FeatureEngineer:
             df[f'{text_col}_avg_word_length'] = (
                 df[text_col].str.split().apply(lambda x: np.mean([len(word) for word in x]) if x else 0)
             )
+            df[f'{text_col}_avg_word_length'] = df[f'{text_col}_avg_word_length'].fillna(0)
             
             # Hashtag and mention features
-            df[f'{text_col}_hashtag_count'] = df[text_col].str.count(r'#\w+')
-            df[f'{text_col}_mention_count'] = df[text_col].str.count(r'@\w+')
-            df[f'{text_col}_url_count'] = df[text_col].str.count(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
+            df[f'{text_col}_hashtag_count'] = df[text_col].str.count(r'#\w+').fillna(0)
+            df[f'{text_col}_mention_count'] = df[text_col].str.count(r'@\w+').fillna(0)
+            df[f'{text_col}_url_count'] = df[text_col].str.count(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+').fillna(0)
         
         logger.info("Created content features")
         return df
@@ -247,14 +274,18 @@ class FeatureEngineer:
                 if likes_col in df.columns:
                     # Interaction ratios
                     if comments_col in df.columns:
+                        # Handle division by zero and missing values
                         df[f'{platform}_{content_type}_comment_like_ratio'] = (
                             df[comments_col] / df[likes_col].replace(0, 1)
                         )
+                        df[f'{platform}_{content_type}_comment_like_ratio'] = df[f'{platform}_{content_type}_comment_like_ratio'].fillna(0)
                     
                     if shares_col in df.columns:
+                        # Handle division by zero and missing values
                         df[f'{platform}_{content_type}_share_like_ratio'] = (
                             df[shares_col] / df[likes_col].replace(0, 1)
                         )
+                        df[f'{platform}_{content_type}_share_like_ratio'] = df[f'{platform}_{content_type}_share_like_ratio'].fillna(0)
                     
                     # Total interactions
                     interaction_cols = [col for col in [likes_col, comments_col, shares_col] if col in df.columns]
@@ -282,17 +313,20 @@ class FeatureEngineer:
         
         for col in engagement_cols:
             for window in window_sizes:
-                # Trend direction
-                df[f'{col}_trend_{window}'] = (
-                    df[col].rolling(window=window, min_periods=1).mean() - 
-                    df[col].rolling(window=window, min_periods=1).mean().shift(1)
+                # Trend direction with min_periods=1 to avoid NaN
+                rolling_mean = df[col].rolling(window=window, min_periods=1).mean()
+                df[f'{col}_trend_{window}'] = rolling_mean - rolling_mean.shift(1)
+                
+                # Trend strength with min_periods=1 to avoid NaN
+                rolling_std = df[col].rolling(window=window, min_periods=1).std()
+                rolling_mean = df[col].rolling(window=window, min_periods=1).mean()
+                df[f'{col}_trend_strength_{window}'] = (
+                    rolling_std / rolling_mean.replace(0, 1)
                 )
                 
-                # Trend strength
-                df[f'{col}_trend_strength_{window}'] = (
-                    df[col].rolling(window=window, min_periods=1).std() / 
-                    df[col].rolling(window=window, min_periods=1).mean().replace(0, 1)
-                )
+                # Fill NaN values in trend features
+                df[f'{col}_trend_{window}'] = df[f'{col}_trend_{window}'].fillna(0)
+                df[f'{col}_trend_strength_{window}'] = df[f'{col}_trend_strength_{window}'].fillna(0)
         
         logger.info("Created trend features")
         return df
@@ -316,6 +350,14 @@ class FeatureEngineer:
         if not available_cols:
             logger.warning("No feature columns found for scaling")
             return df
+        
+        # Handle missing values before scaling
+        for col in available_cols:
+            if df[col].isnull().any():
+                median_val = df[col].median()
+                if pd.isna(median_val):
+                    median_val = 0
+                df[col] = df[col].fillna(median_val)
         
         if scaler_type == 'standard':
             scaler = StandardScaler()
