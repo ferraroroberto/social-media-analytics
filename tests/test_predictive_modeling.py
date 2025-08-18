@@ -42,7 +42,7 @@ from models.prediction_models import (
 )
 
 
-def create_sample_data():
+def create_sample_data(sample_size=90):
     """
     🎯 Create realistic sample data that mimics your social media posts.
     
@@ -50,10 +50,10 @@ def create_sample_data():
     """
     print("🎯 Creating sample social media data...")
     
-    # Create date range for the last 60 days
+    # Create date range for the specified number of days
     end_date = datetime.now()
-    start_date = end_date - timedelta(days=60)
-    dates = pd.date_range(start=start_date, end=end_date, freq='D')
+    start_date = end_date - timedelta(days=sample_size)
+    dates = pd.date_range(start=start_date, end=end_date, freq='D')[:sample_size]
     
     # Create sample data with realistic patterns
     # Note: These calculations mimic real social media behavior patterns
@@ -122,7 +122,54 @@ def create_sample_data():
     return df
 
 
-def load_real_data_from_supabase():
+def get_sample_size():
+    """
+    📏 Get desired sample size from user.
+    
+    Returns:
+        int: Number of rows to use for analysis
+    """
+    print("📏 SAMPLE SIZE SELECTION")
+    print("=" * 30)
+    print("How many rows (most recent) would you like to analyze?")
+    print("💡 Recommendation:")
+    print("   - Small dataset (30-50): Fast, good for testing")
+    print("   - Medium dataset (60-100): Balanced performance and reliability")  
+    print("   - Large dataset (100+): Better model performance, slower training")
+    print()
+    
+    while True:
+        try:
+            user_input = input("Enter number of rows (default 90): ").strip()
+            
+            if not user_input:  # User pressed enter without input
+                return 90
+            
+            sample_size = int(user_input)
+            
+            if sample_size < 10:
+                print("⚠️  Warning: Very small sample size may lead to poor model performance")
+                confirm = input("Continue anyway? (y/n): ").strip().lower()
+                if confirm != 'y':
+                    continue
+            elif sample_size > 500:
+                print("⚠️  Warning: Large sample size may slow down training significantly")
+                confirm = input("Continue anyway? (y/n): ").strip().lower()
+                if confirm != 'y':
+                    continue
+                    
+            print(f"✅ Using sample size: {sample_size} rows")
+            print()
+            return sample_size
+            
+        except ValueError:
+            print("❌ Please enter a valid number")
+        except KeyboardInterrupt:
+            print("\n\n👋 Test cancelled by user")
+            exit(0)
+
+
+def load_real_data_from_supabase(sample_size=90):
     """
     🗄️ Load real data from your Supabase database.
     
@@ -160,6 +207,15 @@ def load_real_data_from_supabase():
         else:
             print("⚠️  Warning: One or both datasets are empty, using posts data only")
             df = posts_df if not posts_df.empty else profile_df
+        
+        # Get the most recent N rows based on sample_size
+        if len(df) > sample_size:
+            # Sort by date and get the last N rows
+            df_sorted = df.sort_values('date')
+            df = df_sorted.tail(sample_size).copy()
+            print(f"📊 Limited to most recent {sample_size} rows (from {len(df_sorted)} total)")
+        else:
+            print(f"📊 Using all {len(df)} available rows (requested {sample_size})")
         
         if df.empty:
             print("❌ Error: No data loaded from database")
@@ -342,6 +398,131 @@ def apply_feature_engineering_silently(df, fe):
     return df
 
 
+def diagnose_data_issues(df, target_col='num_likes_linkedin_no_video'):
+    """
+    🔍 Diagnose potential data issues that could cause prediction problems.
+    
+    Args:
+        df: DataFrame to analyze
+        target_col: Target column name
+    """
+    print("🔍 DIAGNOSING POTENTIAL DATA ISSUES")
+    print("=" * 50)
+    
+    if target_col not in df.columns:
+        print(f"❌ Target column '{target_col}' not found")
+        return
+    
+    # Check target distribution
+    target_data = df[target_col]
+    print(f"🎯 Target Variable Analysis ({target_col}):")
+    print(f"   Mean: {target_data.mean():.2f}")
+    print(f"   Std:  {target_data.std():.2f}")
+    print(f"   Min:  {target_data.min():.2f}")
+    print(f"   Max:  {target_data.max():.2f}")
+    print(f"   Unique values: {target_data.nunique()}")
+    
+    # Check for constant target (major issue)
+    if target_data.nunique() <= 1:
+        print("   ❌ CRITICAL: Target has only 1 unique value!")
+        print("      This will cause models to predict the same value always.")
+        return
+    
+    # Check for very low variance
+    if target_data.std() < 0.01:
+        print("   ⚠️  WARNING: Target has very low variance")
+        print("      This may cause prediction instability.")
+    
+    # Check feature-target correlations
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    numeric_cols = [col for col in numeric_cols if col != target_col]
+    
+    print(f"\n📊 Feature-Target Correlations (top 10):")
+    correlations = []
+    for col in numeric_cols:
+        try:
+            corr = df[col].corr(target_data)
+            if not pd.isna(corr):
+                correlations.append((col, abs(corr)))
+        except:
+            continue
+    
+    correlations.sort(key=lambda x: x[1], reverse=True)
+    for i, (col, corr) in enumerate(correlations[:10]):
+        print(f"   {i+1:2d}. {col[:40]:40} {corr:.4f}")
+    
+    # Check for perfect correlations (data leakage)
+    perfect_corrs = [col for col, corr in correlations if corr > 0.99]
+    if perfect_corrs:
+        print(f"\n   ⚠️  WARNING: Perfect correlations detected (possible data leakage):")
+        for col in perfect_corrs:
+            print(f"      {col}")
+    
+    # Check dataset size
+    print(f"\n📏 Dataset Size Analysis:")
+    print(f"   Rows: {len(df)}")
+    print(f"   Features: {len(numeric_cols)}")
+    print(f"   Features/Rows ratio: {len(numeric_cols)/len(df):.2f}")
+    
+    if len(numeric_cols) >= len(df):
+        print("   ❌ CRITICAL: More features than samples!")
+        print("      This will cause severe overfitting.")
+    elif len(numeric_cols) / len(df) > 0.1:
+        print("   ⚠️  WARNING: High feature-to-sample ratio")
+        print("      This may cause overfitting.")
+    
+    print()
+
+
+def remove_data_leakage_features(feature_cols, target_col):
+    """
+    🚫 Remove features that cause data leakage.
+    
+    Data leakage occurs when features are derived from the target variable,
+    leading to unrealistically perfect predictions.
+    
+    Args:
+        feature_cols: List of feature column names
+        target_col: Target column name
+        
+    Returns:
+        List of cleaned feature columns
+    """
+    print("🚫 REMOVING DATA LEAKAGE FEATURES")
+    print("=" * 40)
+    
+    # Find target-derived features
+    target_base = target_col.replace('_scaled', '')  # Handle scaled versions
+    leakage_features = []
+    
+    for col in feature_cols:
+        # Check if feature contains the target name (but isn't the target itself)
+        if target_base in col and col != target_col:
+            # Common leakage patterns
+            leakage_patterns = ['_rolling_', '_lag_', '_scaled', '_rate', '_trend', '_diff']
+            if any(pattern in col for pattern in leakage_patterns):
+                leakage_features.append(col)
+    
+    if leakage_features:
+        print(f"🔍 Found {len(leakage_features)} potential data leakage features:")
+        for i, col in enumerate(leakage_features[:10]):  # Show first 10
+            print(f"   {i+1:2d}. {col}")
+        if len(leakage_features) > 10:
+            print(f"   ... and {len(leakage_features) - 10} more")
+        
+        # Remove leakage features
+        clean_features = [col for col in feature_cols if col not in leakage_features]
+        print(f"✅ Removed {len(leakage_features)} leakage features")
+        print(f"📊 Features before: {len(feature_cols)} -> after: {len(clean_features)}")
+        print()
+        
+        return clean_features
+    else:
+        print("✅ No data leakage features detected")
+        print()
+        return feature_cols
+
+
 def prepare_modeling_data(df, target_col='num_likes_linkedin_no_video'):
     """
     📊 Prepare data for modeling by separating features and target.
@@ -397,6 +578,9 @@ def prepare_modeling_data(df, target_col='num_likes_linkedin_no_video'):
     
     # Get feature columns (exclude date and target)
     feature_cols = [col for col in df.columns if col not in ['date', target_col]]
+    
+    # Remove data leakage features
+    feature_cols = remove_data_leakage_features(feature_cols, target_col)
     
     # Select features and target
     X = df[feature_cols].copy()
@@ -668,7 +852,7 @@ def compare_model_performance(evaluation_results):
         return pd.DataFrame()
 
 
-def demonstrate_predictions(models, X, feature_cols):
+def demonstrate_predictions(models, X, feature_cols, y=None):
     """
     🎯 Demonstrate predictions for different scenarios.
     
@@ -676,6 +860,7 @@ def demonstrate_predictions(models, X, feature_cols):
         models: Dictionary of trained models
         X: Feature DataFrame
         feature_cols: List of feature columns
+        y: Target Series (optional, for showing actual vs predicted)
     """
     print("🎯 DEMONSTRATING PREDICTIONS")
     print("=" * 50)
@@ -684,13 +869,35 @@ def demonstrate_predictions(models, X, feature_cols):
         print("⚠️  No trained models available for predictions")
         return
     
-    # Get sample data for predictions
+    # Get sample data for predictions - use different rows for variety
     if len(X) > 0:
-        sample_data = X.iloc[:3]  # Use first 3 rows
+        # Select diverse samples from different parts of the dataset
+        sample_indices = []
+        if len(X) >= 3:
+            sample_indices = [0, len(X)//2, len(X)-1]  # First, middle, last
+        else:
+            sample_indices = list(range(len(X)))
+        
+        sample_data = X.iloc[sample_indices]
         print(f"📊 Sample predictions for {len(sample_data)} data points:")
         
         for i, (idx, row) in enumerate(sample_data.iterrows()):
-            print(f"\n📊 Sample {i+1}:")
+            print(f"\n📊 Sample {i+1} (Row {idx}):")
+            
+            # Show key feature values for this sample
+            print("   🔍 Key Feature Values:")
+            key_features = [col for col in X.columns if any(key in col.lower() for key in 
+                          ['num_likes_linkedin_no_video', 'engagement_linkedin_no_video', 'day_of_week', 'is_weekend'])][:5]
+            for feat in key_features:
+                if feat in X.columns:
+                    print(f"      {feat}: {row[feat]:.2f}")
+            
+            # Show actual target value if available
+            if y is not None:
+                actual_value = y.iloc[idx] if hasattr(y, 'iloc') else y[idx]
+                print(f"   🎯 Actual Target Value: {actual_value:.2f}")
+            
+            print("   🤖 Model Predictions:")
             for name, model in models.items():
                 try:
                     prediction = model.predict(row.to_frame().T)
@@ -698,14 +905,54 @@ def demonstrate_predictions(models, X, feature_cols):
                         pred_value = prediction[0]
                     else:
                         pred_value = prediction
-                    print(f"   {name}: {pred_value:.2f}")
+                    
+                    # Show difference from actual if available
+                    if y is not None:
+                        actual_value = y.iloc[idx] if hasattr(y, 'iloc') else y[idx]
+                        diff = pred_value - actual_value
+                        print(f"      {name}: {pred_value:.2f} (diff: {diff:+.2f})")
+                    else:
+                        print(f"      {name}: {pred_value:.2f}")
                 except Exception as e:
-                    print(f"   {name}: Error - {e}")
+                    print(f"      {name}: Error - {e}")
+        
+        # Check if all predictions are identical (potential issue)
+        print(f"\n🔍 PREDICTION ANALYSIS:")
+        if len(models) > 1:
+            all_predictions = {}
+            for name, model in models.items():
+                try:
+                    pred = model.predict(sample_data)
+                    all_predictions[name] = pred
+                except:
+                    continue
+            
+            # Check for identical predictions across samples
+            for model_name, predictions in all_predictions.items():
+                if len(set(predictions.round(2))) == 1:
+                    print(f"   ⚠️  WARNING: {model_name} gives identical predictions for all samples!")
+                    print(f"      This suggests overfitting or data leakage issues.")
+                
+            # Check for huge differences between models
+            if len(all_predictions) > 1:
+                pred_ranges = {}
+                for i in range(len(sample_data)):
+                    sample_preds = [preds[i] for preds in all_predictions.values()]
+                    pred_range = max(sample_preds) - min(sample_preds)
+                    pred_ranges[f"Sample {i+1}"] = pred_range
+                
+                max_range = max(pred_ranges.values())
+                if max_range > 50:  # Arbitrary threshold
+                    print(f"   ⚠️  WARNING: Large prediction differences detected!")
+                    print(f"      Maximum range: {max_range:.2f}")
+                    print(f"      This suggests model instability or data issues.")
     else:
         print("⚠️  No data available for predictions")
     
     print("\n💡 Prediction Insights:")
     print("   • Different models may give different predictions")
+    print("   • Identical predictions across samples indicate potential issues")
+    print("   • Large prediction ranges suggest model instability")
     print("   • Ensemble models often provide more stable results")
     print("   • Use the best performing model for production")
     print()
@@ -780,10 +1027,16 @@ def run_comprehensive_test():
         # Step 1: Choose data source and load data
         data_source = choose_data_source()
         
+        # Step 1.5: Get sample size if using real data
+        if data_source == "real":
+            sample_size = get_sample_size()
+        else:
+            sample_size = 90  # Default for sample data
+        
         if data_source == "sample":
-            df = create_sample_data()
+            df = create_sample_data(sample_size)
         else:  # real data
-            df = load_real_data_from_supabase()
+            df = load_real_data_from_supabase(sample_size)
         
         # Step 2: Show available features in the database
         print("📊 AVAILABLE FEATURES IN YOUR DATABASE")
@@ -805,6 +1058,9 @@ def run_comprehensive_test():
         # Step 4: Apply feature engineering silently
         df_with_features = apply_feature_engineering_silently(df, fe)
         
+        # Step 4.5: Diagnose potential data issues
+        diagnose_data_issues(df_with_features, target_col='num_likes_linkedin_no_video')
+        
         # Step 5: Prepare data for modeling
         X, y, feature_cols = prepare_modeling_data(df_with_features)
         
@@ -825,7 +1081,7 @@ def run_comprehensive_test():
         comparison_df = compare_model_performance(evaluation_results)
         
         # Step 10: Demonstrate predictions
-        demonstrate_predictions(trained_models, X, feature_cols)
+        demonstrate_predictions(trained_models, X, feature_cols, y)
         
         # Step 11: Show feature importance
         show_feature_importance(trained_models, feature_cols)
