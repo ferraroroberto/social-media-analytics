@@ -20,7 +20,7 @@ This document is your comprehensive guide to learning data science by building a
 
 | Component | Status | Purpose | Test Script |
 |-----------|--------|---------|-------------|
-| **Data Layer** | ✅ Complete | Connect to Supabase database | `test_supabase_connection.py` |
+| **Data Layer** | ✅ Complete | Connect to Supabase database | `tools/supabase_connection_check.py` |
 | **Feature Engineering** | ✅ Complete | Transform raw data into features | `tests/test_feature_engineering.py` |
 | **Machine Learning** | 🔄 Next Step | Train and evaluate models | Coming in Step 3 |
 | **API Layer** | 🔄 Coming Soon | Make predictions available | Coming in Step 4 |
@@ -145,7 +145,7 @@ pip install python-dotenv supabase pandas
 
 **Step 2: Run the connection test**
 ```bash
-python test_supabase_connection.py
+python tools/supabase_connection_check.py
 ```
 
 **What the test does:**

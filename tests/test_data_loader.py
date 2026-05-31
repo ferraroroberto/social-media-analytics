@@ -78,21 +78,34 @@ class TestDataLoader:
         assert 'day_of_week' in processed_df.columns
     
     def test_create_platform_dataset(self):
-        """Test platform dataset creation."""
-        # Mock data
+        """Test platform dataset creation.
+
+        ``create_platform_dataset`` consumes *preprocessed* frames (it selects
+        the temporal columns ``day_of_week``/``month``/``quarter``/``year``/
+        ``is_weekend`` and the ``follower_growth_*`` columns that only
+        ``preprocess_*`` produce), exactly as the real pipeline does in
+        ``cli.py``. Feed it raw frames through the preprocessing step rather
+        than hand-rolling half-preprocessed mocks.
+        """
+        # Raw mock data, as it would arrive from Supabase
         posts_df = pd.DataFrame({
             'date': ['2023-01-01', '2023-01-02'],
-            'engagement_linkedin_no_video': [100, 150],
-            'engagement_rate_linkedin_no_video': [0.1, 0.15]
+            'num_likes_linkedin_no_video': [85, 130],
+            'num_comments_linkedin_no_video': [10, 15],
+            'num_reshares_linkedin_no_video': [5, 5]
         })
         profile_df = pd.DataFrame({
             'date': ['2023-01-01', '2023-01-02'],
             'num_followers_linkedin': [1000, 1050]
         })
-        
+
+        # Preprocess first, mirroring the real pipeline contract
+        posts_df = self.data_loader.preprocess_posts_data(posts_df)
+        profile_df = self.data_loader.preprocess_profile_data(profile_df)
+
         # Test
         platform_df = self.data_loader.create_platform_dataset('linkedin', posts_df, profile_df)
-        
+
         assert len(platform_df) == 2
         assert 'engagement_linkedin_no_video' in platform_df.columns
         assert 'num_followers_linkedin' in platform_df.columns
