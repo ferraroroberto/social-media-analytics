@@ -17,7 +17,7 @@ Run this script to:
 - Test with your real social media data (if Supabase is connected)
 
 Usage:
-    python tests/test_predictive_modeling.py
+    python tests/demo_predictive_modeling.py
 
 Data Sources:
 - 📚 Sample Data: Creates realistic fake data (recommended for learning)

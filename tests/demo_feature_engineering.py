@@ -16,7 +16,7 @@ Run this script to:
 - Test with your real social media data (if Supabase is connected)
 
 Usage:
-    python tests/test_feature_engineering.py
+    python tests/demo_feature_engineering.py
 
 Data Sources:
 - 📚 Sample Data: Creates realistic fake data (recommended for learning)

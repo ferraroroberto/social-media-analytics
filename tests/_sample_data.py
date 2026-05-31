@@ -1,5 +1,5 @@
 """
-Shared test-data helpers used by test_feature_engineering.py and test_predictive_modeling.py.
+Shared test-data helpers used by demo_feature_engineering.py and demo_predictive_modeling.py.
 
 Extracted from both test scripts to eliminate duplication (issue #5).
 """

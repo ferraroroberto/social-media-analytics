@@ -102,12 +102,13 @@ git clone https://github.com/yourusername/content-performance-predictor.git
 cd content-performance-predictor
 
 # Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv .venv
 
 # Install dependencies
-pip install -r requirements.txt
-pip install -e .
+.venv/bin/python -m pip install -r requirements.txt  # POSIX
+# .venv\Scripts\python.exe -m pip install -r requirements.txt  # Windows
+.venv/bin/python -m pip install -e .  # POSIX
+# .venv\Scripts\python.exe -m pip install -e .  # Windows
 ```
 
 ### 2. Environment Configuration
@@ -266,7 +267,7 @@ make format
 
 1. Add feature engineering logic in `src/features/feature_engineering.py`
 2. Update the `FeatureEngineer` class
-3. Add tests in `tests/test_feature_engineering.py`
+3. Add tests in `tests/demo_feature_engineering.py`
 
 ### Database Schema
 
