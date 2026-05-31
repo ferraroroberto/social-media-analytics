@@ -162,7 +162,7 @@ Create `requirements.txt` with all necessary packages:
 
 **database.py** - Supabase client:
 - `SupabaseClient` class
-- Methods: `get_posts_data()`, `get_profile_data()`, `get_notion_data()`, `get_platform_data()`
+- Methods: `get_posts_data()`, `get_profile_data()`
 - Error handling and logging
 
 **data_loader.py** - Data processing:
