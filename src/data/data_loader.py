@@ -199,36 +199,6 @@ class DataLoader:
         logger.info(f"Created cross-platform dataset with {len(df)} records")
         return df
     
-    def load_notion_content_data(self, table_name: str = 'notion_posts') -> pd.DataFrame:
-        """
-        Load and preprocess Notion content data.
-        
-        Args:
-            table_name: Notion table name
-            
-        Returns:
-            Preprocessed Notion data
-        """
-        df = self.supabase_client.get_notion_data(table_name)
-        
-        if df.empty:
-            logger.warning(f"No data found in {table_name}")
-            return df
-        
-        # Convert timestamps
-        if 'created_time' in df.columns:
-            df['created_time'] = pd.to_datetime(df['created_time'])
-        if 'last_edited_time' in df.columns:
-            df['last_edited_time'] = pd.to_datetime(df['last_edited_time'])
-        
-        # Extract JSON data if needed
-        if 'notion_data_jsonb' in df.columns:
-            # This would need to be customized based on the actual JSON structure
-            pass
-        
-        logger.info(f"Loaded {len(df)} records from {table_name}")
-        return df
-    
     def get_feature_columns(self, platform: Optional[str] = None) -> List[str]:
         """
         Get list of feature columns for modeling.

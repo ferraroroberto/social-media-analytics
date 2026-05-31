@@ -129,7 +129,7 @@ def main():
     print("\nNext steps:")
     print("1. If you see table structures and data, you're ready to go!")
     print("2. If some tables are missing, that's normal - they'll be created as needed")
-    print("3. Run the project with: python -m src.main")
+    print("3. Run the project with: python -m src.cli analyze ...")
 
 if __name__ == "__main__":
     main()
