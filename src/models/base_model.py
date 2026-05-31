@@ -40,25 +40,20 @@ class BaseModel(ABC, BaseEstimator):
         """Create the underlying model instance."""
         pass
     
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> 'BaseModel':
+    @staticmethod
+    def _clean_features(X: pd.DataFrame) -> pd.DataFrame:
         """
-        Fit the model to the data.
-        
+        Apply per-column type handling used identically at fit time and predict time.
+
+        Numeric columns: fill missing values with median (fallback 0).
+        Other columns: fill missing with 'missing', then encode as Categorical codes.
+
         Args:
-            X: Feature DataFrame
-            y: Target Series
-            
+            X: Feature DataFrame (a copy is made internally).
+
         Returns:
-            Self
+            Cleaned DataFrame ready for the underlying sklearn estimator.
         """
-        if self.model is None:
-            self.model = self._create_model()
-        
-        # Ensure we have the right features
-        if self.feature_columns:
-            X = X[self.feature_columns]
-        
-        # Handle different column types
         X_clean = X.copy()
         for col in X_clean.columns:
             if X_clean[col].dtype in ['int64', 'float64']:
@@ -71,7 +66,29 @@ class BaseModel(ABC, BaseEstimator):
                 # For categorical/string columns, encode all values as categories
                 X_clean[col] = X_clean[col].fillna('missing')
                 X_clean[col] = pd.Categorical(X_clean[col]).codes
-        
+        return X_clean
+
+    def fit(self, X: pd.DataFrame, y: pd.Series) -> 'BaseModel':
+        """
+        Fit the model to the data.
+
+        Args:
+            X: Feature DataFrame
+            y: Target Series
+
+        Returns:
+            Self
+        """
+        if self.model is None:
+            self.model = self._create_model()
+
+        # Ensure we have the right features
+        if self.feature_columns:
+            X = X[self.feature_columns]
+
+        # Handle different column types
+        X_clean = self._clean_features(X)
+
         # Remove any rows with missing target values
         mask = ~y.isnull()
         X_clean = X_clean[mask]
@@ -107,21 +124,10 @@ class BaseModel(ABC, BaseEstimator):
         
         if self.feature_columns:
             X = X[self.feature_columns]
-        
-        # Handle different column types
-        X_clean = X.copy()
-        for col in X_clean.columns:
-            if X_clean[col].dtype in ['int64', 'float64']:
-                # For numeric columns, fill missing values with median
-                median_val = X_clean[col].median()
-                if pd.isna(median_val):
-                    median_val = 0
-                X_clean[col] = X_clean[col].fillna(median_val)
-            else:
-                # For categorical/string columns, encode all values as categories
-                X_clean[col] = X_clean[col].fillna('missing')
-                X_clean[col] = pd.Categorical(X_clean[col]).codes
-        
+
+        # Handle different column types (same logic as fit — delegates to _clean_features)
+        X_clean = self._clean_features(X)
+
         try:
             predictions = self.model.predict(X_clean)
             logger.info(f"Made predictions for {len(X_clean)} samples")
