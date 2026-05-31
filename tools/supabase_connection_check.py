@@ -36,7 +36,7 @@ def load_environment():
     
     return url, key, service_key
 
-def test_connection(url: str, key: str) -> Client:
+def check_connection(url: str, key: str) -> Client:
     """Test Supabase connection"""
     try:
         print(f"🔌 Connecting to Supabase...")
@@ -105,7 +105,7 @@ def main():
         sys.exit(1)
     
     # Test connection
-    client = test_connection(url, key)
+    client = check_connection(url, key)
     if not client:
         sys.exit(1)
     
