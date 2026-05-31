@@ -135,17 +135,24 @@ def predict(args):
         if not model_file.exists():
             logger.error(f"Model not found: {model_file}")
             return 1
-        
-        # Load model (this would need to be implemented in the base model)
-        logger.info(f"Loading model from {model_file}")
-        # model = BaseModel.load_model(str(model_file))
-        
-        # For now, just print a message
-        logger.info(f"Prediction for {args.platform} {args.content_type} on {args.date}")
-        logger.info("Prediction functionality to be implemented")
-        
-        return 0
-        
+
+        # NOTE: end-to-end prediction is not implemented yet. Producing a
+        # prediction requires loading the trained model AND building the
+        # date-keyed feature row for args.date from Supabase via DataLoader +
+        # FeatureEngineer (the same pipeline train_model uses). Until that path
+        # exists, fail loudly with a non-zero exit code instead of logging a
+        # success message and returning 0 — a silent no-op hides the gap from
+        # callers and CI. See GitHub issue #3.
+        logger.error(
+            "❌ Prediction is not implemented yet "
+            f"(requested: platform={args.platform}, "
+            f"content_type={args.content_type}, date={args.date}). "
+            f"A trained model exists at {model_file}, but the feature-row "
+            "construction for a given date is not wired up. Use the `train` "
+            "command to build models; `predict` will be enabled in a future change."
+        )
+        return 1
+
     except Exception as e:
         logger.error(f"Error making prediction: {e}")
         return 1

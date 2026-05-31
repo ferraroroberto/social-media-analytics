@@ -479,7 +479,7 @@ def analyze_cross_platform(n_clicks):
         return dbc.Alert(f"Error: {str(e)}", color="danger")
 
 if __name__ == "__main__":
-    app.run_server(
+    app.run(
         debug=os.getenv("DASHBOARD_DEBUG", "true").lower() == "true",
         host=os.getenv("DASHBOARD_HOST", "0.0.0.0"),
         port=int(os.getenv("DASHBOARD_PORT", 8050))

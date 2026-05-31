@@ -225,7 +225,8 @@ Access the dashboard at `http://localhost:8050` to:
 # Train a model
 python -m src.cli train --platform linkedin --content-type no_video --model-type xgboost
 
-# Make predictions
+# Make predictions (not implemented yet — exits non-zero with a clear error;
+# use `train` to build models in the meantime)
 python -m src.cli predict --platform linkedin --content-type no_video --date 2023-12-01
 
 # Analyze data
