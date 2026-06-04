@@ -1,87 +1,70 @@
-"""
-🧠 Predictive Modeling Test Script - Educational & Testing Purposes
+"""Predictive Modeling Demo - educational walkthrough.
 
-This script demonstrates how the predictive modeling system works by:
-1. Choosing between sample data or real Supabase data
-2. Applying feature engineering (silently)
-3. Creating and training multiple ML models
-4. Comparing model performance
-5. Making predictions for LinkedIn engagement
-6. Showing feature importance and practical results
-
-Run this script to:
-- Test your predictive modeling implementation
-- Learn how different models perform on LinkedIn data
-- See the impact of feature engineering on predictions
-- Debug any issues with model training
-- Test with your real social media data (if Supabase is connected)
+A thin narration layer over ``src.models.model_pipeline``: it loads data,
+applies feature engineering, then trains, evaluates, and compares the standard
+model zoo, printing a step-by-step commentary. The reusable logic lives in the
+pipeline module and is unit-tested in ``tests/test_model_pipeline.py``; this
+script only orchestrates and explains.
 
 Usage:
     python tests/demo_predictive_modeling.py
 
-Data Sources:
-- 📚 Sample Data: Creates realistic fake data (recommended for learning)
-- 🗄️ Real Data: Loads from your Supabase database (for production testing)
+Data sources:
+- Sample data: realistic fake data (recommended for learning)
+- Real data: loaded from Supabase (for production testing)
 """
 
-import sys
 import os
-import pandas as pd
-import numpy as np
+import sys
 import warnings
-warnings.filterwarnings('ignore')
 
-# Add src to path so we can import our modules
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+import numpy as np
+import pandas as pd
+
+warnings.filterwarnings("ignore")
+
+# Add src to path so we can import our modules.
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from features.feature_engineering import FeatureEngineer
-from models.prediction_models import (
-    RandomForestModel, XGBoostModel, LightGBMModel, CatBoostModel,
-    LinearRegressionModel, RidgeModel, SVRModel, MLPModel, EnsembleModel
+from models.model_pipeline import (
+    compare_model_performance,
+    create_all_models,
+    evaluate_all_models,
+    find_leakage_features,
+    prepare_modeling_data,
+    train_all_models,
 )
-from tests._sample_data import create_sample_data, load_real_data_from_supabase, choose_data_source
+from tests._sample_data import (
+    choose_data_source,
+    create_sample_data,
+    load_real_data_from_supabase,
+)
 
 
 def get_sample_size():
-    """
-    📏 Get desired sample size from user.
-    
-    Returns:
-        int: Number of rows to use for analysis
-    """
+    """Prompt for the desired sample size (rows). Defaults to 90."""
     print("📏 SAMPLE SIZE SELECTION")
     print("=" * 30)
     print("How many rows (most recent) would you like to analyze?")
-    print("💡 Recommendation:")
-    print("   - Small dataset (30-50): Fast, good for testing")
-    print("   - Medium dataset (60-100): Balanced performance and reliability")  
-    print("   - Large dataset (100+): Better model performance, slower training")
+    print("   - 30-50: fast, good for testing")
+    print("   - 60-100: balanced")
+    print("   - 100+: better performance, slower training")
     print()
-    
+
     while True:
         try:
             user_input = input("Enter number of rows (default 90): ").strip()
-            
-            if not user_input:  # User pressed enter without input
+            if not user_input:
                 return 90
-            
             sample_size = int(user_input)
-            
-            if sample_size < 10:
-                print("⚠️  Warning: Very small sample size may lead to poor model performance")
-                confirm = input("Continue anyway? (y/n): ").strip().lower()
-                if confirm != 'y':
+            if sample_size < 10 or sample_size > 500:
+                warn = "very small" if sample_size < 10 else "large"
+                print(f"⚠️  Warning: {warn} sample size.")
+                if input("Continue anyway? (y/n): ").strip().lower() != "y":
                     continue
-            elif sample_size > 500:
-                print("⚠️  Warning: Large sample size may slow down training significantly")
-                confirm = input("Continue anyway? (y/n): ").strip().lower()
-                if confirm != 'y':
-                    continue
-                    
-            print(f"✅ Using sample size: {sample_size} rows")
-            print()
+            print(f"✅ Using sample size: {sample_size} rows\n")
             return sample_size
-            
         except ValueError:
             print("❌ Please enter a valid number")
         except KeyboardInterrupt:
@@ -90,859 +73,240 @@ def get_sample_size():
 
 
 def show_data_quality_info(df, stage_name):
-    """
-    📊 Show data quality information at different stages.
-    
-    Args:
-        df: DataFrame to analyze
-        stage_name: Name of the current stage
-    """
+    """Print a compact data-quality snapshot for a stage."""
     print(f"📊 Data Quality Check - {stage_name}")
     print(f"   Shape: {df.shape}")
-    print(f"   Memory usage: {df.memory_usage(deep=True).sum() / 1024 / 1024:.2f} MB")
-    
-    # Check for missing values
-    missing_counts = df.isnull().sum()
-    missing_cols = missing_counts[missing_counts > 0]
-    
-    if len(missing_cols) > 0:
-        print(f"   ⚠️  Columns with missing values: {len(missing_cols)}")
-        print(f"   🔍 Top 5 columns with most missing values:")
-        for col, count in missing_cols.nlargest(5).items():
-            percentage = (count / len(df)) * 100
-            print(f"      {col}: {count} ({percentage:.1f}%)")
+    print(f"   Memory: {df.memory_usage(deep=True).sum() / 1024 / 1024:.2f} MB")
+
+    missing = df.isnull().sum()
+    missing = missing[missing > 0]
+    if len(missing) > 0:
+        print(f"   ⚠️  Columns with missing values: {len(missing)}")
+        for col, count in missing.nlargest(5).items():
+            print(f"      {col}: {count} ({count / len(df) * 100:.1f}%)")
     else:
         print("   ✅ No missing values found")
-    
-    # Check data types
-    dtypes = df.dtypes.value_counts()
-    print(f"   📝 Data types:")
-    for dtype, count in dtypes.items():
-        print(f"      {dtype}: {count} columns")
-    
     print()
 
 
 def apply_feature_engineering_silently(df, fe):
-    """
-    🔧 Apply feature engineering silently (no demonstration output).
-    
-    This prepares the data for predictive modeling.
-    """
-    print("🔧 Applying feature engineering (silently)...")
-    
+    """Run the feature-engineering pipeline with terse progress output."""
+    print("🔧 Applying feature engineering...")
+
+    steps = [
+        ("temporal", lambda d: fe.create_temporal_features(d, "date")),
+        (
+            "lag",
+            lambda d: fe.create_lag_features(
+                d,
+                [c for c in ("engagement_linkedin_no_video", "num_likes_linkedin_no_video") if c in d.columns],
+                lags=[1, 3, 7],
+            ),
+        ),
+        ("engagement", lambda d: fe.create_engagement_features(d, platforms=["linkedin", "instagram"])),
+        ("cross-platform", fe.create_cross_platform_features),
+        ("trend", lambda d: fe.create_trend_features(d, window_sizes=[7, 14])),
+    ]
+    for name, fn in steps:
+        try:
+            df = fn(df)
+            print(f"   ✅ {name} features")
+        except Exception as exc:
+            print(f"   ⚠️  {name}: {exc}")
+
     try:
-        # Create temporal features
-        df = fe.create_temporal_features(df, 'date')
-        print("   ✅ Temporal features created")
-    except Exception as e:
-        print(f"   ⚠️  Warning creating temporal features: {e}")
-    
-    try:
-        # Create lag features - only for columns that exist
-        target_cols = ['engagement_linkedin_no_video', 'num_likes_linkedin_no_video']
-        available_cols = [col for col in target_cols if col in df.columns]
-        if available_cols:
-            df = fe.create_lag_features(df, available_cols, lags=[1, 3, 7])
-            print(f"   ✅ Lag features created for {len(available_cols)} columns")
-        else:
-            print("   ⚠️  No suitable columns found for lag features")
-    except Exception as e:
-        print(f"   ⚠️  Warning creating lag features: {e}")
-    
-    try:
-        # Create engagement features
-        df = fe.create_engagement_features(df, platforms=['linkedin', 'instagram'])
-        print("   ✅ Engagement features created")
-    except Exception as e:
-        print(f"   ⚠️  Warning creating engagement features: {e}")
-    
-    try:
-        # Create cross-platform features
-        df = fe.create_cross_platform_features(df)
-        print("   ✅ Cross-platform features created")
-    except Exception as e:
-        print(f"   ⚠️  Warning creating cross-platform features: {e}")
-    
-    try:
-        # Create trend features - only for columns that exist
-        target_col = 'engagement_linkedin_no_video'
-        if target_col in df.columns:
-            df = fe.create_trend_features(df, window_sizes=[7, 14])
-            print("   ✅ Trend features created")
-        else:
-            print("   ⚠️  No engagement column found for trend features")
-    except Exception as e:
-        print(f"   ⚠️  Warning creating trend features: {e}")
-    
-    try:
-        # Scale features - only numeric columns
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        exclude_cols = ['day_of_week', 'month', 'quarter', 'year', 'day_of_year', 'week_of_year']
-        numeric_cols = [col for col in numeric_cols if col not in exclude_cols]
+        exclude = {"day_of_week", "month", "quarter", "year", "day_of_year", "week_of_year"}
+        numeric_cols = [
+            c for c in df.select_dtypes(include=[np.number]).columns if c not in exclude
+        ]
         if numeric_cols:
-            df = fe.scale_features(df, numeric_cols, scaler_type='standard')
-            print(f"   ✅ Scaled {len(numeric_cols)} numeric features")
-        else:
-            print("   ⚠️  No numeric columns found for scaling")
-    except Exception as e:
-        print(f"   ⚠️  Warning scaling features: {e}")
-    
-    print(f"✅ Feature engineering completed. Dataset shape: {df.shape}")
-    
-    # Show data quality information after feature engineering
+            df = fe.scale_features(df, numeric_cols, scaler_type="standard")
+            print(f"   ✅ scaled {len(numeric_cols)} numeric features")
+    except Exception as exc:
+        print(f"   ⚠️  scaling: {exc}")
+
+    print(f"✅ Feature engineering done. Shape: {df.shape}\n")
     show_data_quality_info(df, "After Feature Engineering")
-    
-    print()
-    
     return df
 
 
-def diagnose_data_issues(df, target_col='num_likes_linkedin_no_video'):
-    """
-    🔍 Diagnose potential data issues that could cause prediction problems.
-    
-    Args:
-        df: DataFrame to analyze
-        target_col: Target column name
-    """
+def diagnose_data_issues(df, target_col="num_likes_linkedin_no_video"):
+    """Print target distribution, top correlations, and overfitting warnings."""
     print("🔍 DIAGNOSING POTENTIAL DATA ISSUES")
     print("=" * 50)
-    
+
     if target_col not in df.columns:
         print(f"❌ Target column '{target_col}' not found")
         return
-    
-    # Check target distribution
-    target_data = df[target_col]
-    print(f"🎯 Target Variable Analysis ({target_col}):")
-    print(f"   Mean: {target_data.mean():.2f}")
-    print(f"   Std:  {target_data.std():.2f}")
-    print(f"   Min:  {target_data.min():.2f}")
-    print(f"   Max:  {target_data.max():.2f}")
-    print(f"   Unique values: {target_data.nunique()}")
-    
-    # Check for constant target (major issue)
-    if target_data.nunique() <= 1:
-        print("   ❌ CRITICAL: Target has only 1 unique value!")
-        print("      This will cause models to predict the same value always.")
+
+    target = df[target_col]
+    print(f"🎯 Target '{target_col}': mean={target.mean():.2f} std={target.std():.2f} "
+          f"min={target.min():.2f} max={target.max():.2f} unique={target.nunique()}")
+
+    if target.nunique() <= 1:
+        print("   ❌ CRITICAL: target has only 1 unique value!")
         return
-    
-    # Check for very low variance
-    if target_data.std() < 0.01:
-        print("   ⚠️  WARNING: Target has very low variance")
-        print("      This may cause prediction instability.")
-    
-    # Check feature-target correlations
-    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-    numeric_cols = [col for col in numeric_cols if col != target_col]
-    
-    print(f"\n📊 Feature-Target Correlations (top 10):")
+    if target.std() < 0.01:
+        print("   ⚠️  WARNING: target has very low variance")
+
+    numeric_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c != target_col]
     correlations = []
     for col in numeric_cols:
-        try:
-            corr = df[col].corr(target_data)
-            if not pd.isna(corr):
-                correlations.append((col, abs(corr)))
-        except:
-            continue
-    
+        corr = df[col].corr(target)
+        if not pd.isna(corr):
+            correlations.append((col, abs(corr)))
     correlations.sort(key=lambda x: x[1], reverse=True)
-    for i, (col, corr) in enumerate(correlations[:10]):
-        print(f"   {i+1:2d}. {col[:40]:40} {corr:.4f}")
-    
-    # Check for perfect correlations (data leakage)
-    perfect_corrs = [col for col, corr in correlations if corr > 0.99]
-    if perfect_corrs:
-        print(f"\n   ⚠️  WARNING: Perfect correlations detected (possible data leakage):")
-        for col in perfect_corrs:
+
+    print("\n📊 Feature-Target Correlations (top 10):")
+    for i, (col, corr) in enumerate(correlations[:10], 1):
+        print(f"   {i:2d}. {col[:40]:40} {corr:.4f}")
+
+    leakage = [col for col, corr in correlations if corr > 0.99]
+    if leakage:
+        print("\n   ⚠️  Perfect correlations (possible leakage):")
+        for col in leakage:
             print(f"      {col}")
-    
-    # Check dataset size
-    print(f"\n📏 Dataset Size Analysis:")
-    print(f"   Rows: {len(df)}")
-    print(f"   Features: {len(numeric_cols)}")
-    print(f"   Features/Rows ratio: {len(numeric_cols)/len(df):.2f}")
-    
+
+    ratio = len(numeric_cols) / len(df) if len(df) else 0
+    print(f"\n📏 Rows: {len(df)} | Features: {len(numeric_cols)} | ratio: {ratio:.2f}")
     if len(numeric_cols) >= len(df):
-        print("   ❌ CRITICAL: More features than samples!")
-        print("      This will cause severe overfitting.")
-    elif len(numeric_cols) / len(df) > 0.1:
-        print("   ⚠️  WARNING: High feature-to-sample ratio")
-        print("      This may cause overfitting.")
-    
+        print("   ❌ CRITICAL: more features than samples (severe overfitting risk)")
+    elif ratio > 0.1:
+        print("   ⚠️  WARNING: high feature-to-sample ratio")
     print()
-
-
-def remove_data_leakage_features(feature_cols, target_col):
-    """
-    🚫 Remove features that cause data leakage.
-    
-    Data leakage occurs when features are derived from the target variable,
-    leading to unrealistically perfect predictions.
-    
-    Args:
-        feature_cols: List of feature column names
-        target_col: Target column name
-        
-    Returns:
-        List of cleaned feature columns
-    """
-    print("🚫 REMOVING DATA LEAKAGE FEATURES")
-    print("=" * 40)
-    
-    # Find target-derived features
-    target_base = target_col.replace('_scaled', '')  # Handle scaled versions
-    leakage_features = []
-    
-    for col in feature_cols:
-        # Check if feature contains the target name (but isn't the target itself)
-        if target_base in col and col != target_col:
-            # Common leakage patterns
-            leakage_patterns = ['_rolling_', '_lag_', '_scaled', '_rate', '_trend', '_diff']
-            if any(pattern in col for pattern in leakage_patterns):
-                leakage_features.append(col)
-    
-    if leakage_features:
-        print(f"🔍 Found {len(leakage_features)} potential data leakage features:")
-        for i, col in enumerate(leakage_features[:10]):  # Show first 10
-            print(f"   {i+1:2d}. {col}")
-        if len(leakage_features) > 10:
-            print(f"   ... and {len(leakage_features) - 10} more")
-        
-        # Remove leakage features
-        clean_features = [col for col in feature_cols if col not in leakage_features]
-        print(f"✅ Removed {len(leakage_features)} leakage features")
-        print(f"📊 Features before: {len(feature_cols)} -> after: {len(clean_features)}")
-        print()
-        
-        return clean_features
-    else:
-        print("✅ No data leakage features detected")
-        print()
-        return feature_cols
-
-
-def prepare_modeling_data(df, target_col='num_likes_linkedin_no_video'):
-    """
-    📊 Prepare data for modeling by separating features and target.
-    
-    Args:
-        df: DataFrame with features and target
-        target_col: Name of the target column
-        
-    Returns:
-        Tuple of (features DataFrame, target Series)
-    """
-    print(f"📊 Preparing data for modeling with target: {target_col}")
-    
-    # Ensure target column exists
-    if target_col not in df.columns:
-        print(f"⚠️  Target column '{target_col}' not found in data")
-        
-        # Look for alternative target columns
-        possible_targets = []
-        
-        # First priority: engagement columns
-        engagement_cols = [col for col in df.columns if 'engagement' in col.lower()]
-        possible_targets.extend(engagement_cols)
-        
-        # Second priority: like columns
-        like_cols = [col for col in df.columns if 'like' in col.lower()]
-        possible_targets.extend(like_cols)
-        
-        # Third priority: comment columns
-        comment_cols = [col for col in df.columns if 'comment' in col.lower()]
-        possible_targets.extend(comment_cols)
-        
-        # Fourth priority: any numeric columns that might be suitable
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        # Filter out date-related columns
-        numeric_cols = [col for col in numeric_cols if not any(x in col.lower() for x in ['date', 'day', 'month', 'year', 'week', 'quarter'])]
-        possible_targets.extend(numeric_cols)
-        
-        if possible_targets:
-            # Remove duplicates while preserving order
-            seen = set()
-            unique_targets = []
-            for col in possible_targets:
-                if col not in seen:
-                    seen.add(col)
-                    unique_targets.append(col)
-            
-            # Select the first available target
-            target_col = unique_targets[0]
-            print(f"✅ Using alternative target column: {target_col}")
-        else:
-            raise ValueError(f"No suitable target column found in data. Available columns: {list(df.columns)}")
-    
-    # Get feature columns (exclude date and target)
-    feature_cols = [col for col in df.columns if col not in ['date', target_col]]
-    
-    # Remove data leakage features
-    feature_cols = remove_data_leakage_features(feature_cols, target_col)
-    
-    # Select features and target
-    X = df[feature_cols].copy()
-    y = df[target_col].copy()
-    
-    # Handle missing values more intelligently
-    print(f"📊 Original data shape: {X.shape}")
-    print(f"🔍 Missing values in features: {X.isnull().sum().sum()}")
-    print(f"🔍 Missing values in target: {y.isnull().sum()}")
-    
-    # Fill missing values in features with appropriate strategies
-    for col in X.columns:
-        if X[col].dtype in ['int64', 'float64']:
-            # For numeric columns, fill with median (more robust than mean)
-            median_val = X[col].median()
-            if pd.isna(median_val):
-                median_val = 0  # Fallback to 0 if median is also NaN
-            X[col] = X[col].fillna(median_val)
-        else:
-            # For categorical/text columns, fill with mode or empty string
-            mode_val = X[col].mode()
-            if len(mode_val) > 0 and not pd.isna(mode_val.iloc[0]):
-                X[col] = X[col].fillna(mode_val.iloc[0])
-            else:
-                X[col] = X[col].fillna('')
-    
-    # Fill missing values in target with median
-    y_median = y.median()
-    if pd.isna(y_median):
-        y_median = 0
-    y = y.fillna(y_median)
-    
-    print(f"📊 After filling missing values - Features shape: {X.shape}")
-    print(f"📊 After filling missing values - Target shape: {y.shape}")
-    print(f"🎯 Target variable: {target_col}")
-    print(f"🔧 Features: {len(feature_cols)}")
-    print()
-    
-    return X, y, feature_cols
-
-
-def create_all_models(target_col, feature_cols):
-    """
-    🏗️ Create all available prediction models.
-    
-    Args:
-        target_col: Target column name
-        feature_cols: List of feature columns
-        
-    Returns:
-        Dictionary of initialized models
-    """
-    print("🏗️  Creating all prediction models...")
-    
-    models = {}
-    
-    # Tree-based models
-    models['random_forest'] = RandomForestModel(
-        target_column=target_col,
-        feature_columns=feature_cols,
-        n_estimators=100,
-        max_depth=10,
-        random_state=42
-    )
-    
-    models['xgboost'] = XGBoostModel(
-        target_column=target_col,
-        feature_columns=feature_cols,
-        n_estimators=100,
-        max_depth=6,
-        learning_rate=0.1,
-        random_state=42
-    )
-    
-    models['lightgbm'] = LightGBMModel(
-        target_column=target_col,
-        feature_columns=feature_cols,
-        n_estimators=100,
-        max_depth=6,
-        learning_rate=0.1,
-        random_state=42
-    )
-    
-    models['catboost'] = CatBoostModel(
-        target_column=target_col,
-        feature_columns=feature_cols,
-        iterations=100,
-        depth=6,
-        learning_rate=0.1,
-        random_state=42
-    )
-    
-    # Linear models
-    models['linear_regression'] = LinearRegressionModel(
-        target_column=target_col,
-        feature_columns=feature_cols
-    )
-    
-    models['ridge'] = RidgeModel(
-        target_column=target_col,
-        feature_columns=feature_cols,
-        alpha=1.0,
-        random_state=42
-    )
-    
-    # Neural network
-    models['mlp'] = MLPModel(
-        target_column=target_col,
-        feature_columns=feature_cols,
-        hidden_layer_sizes=(100, 50),
-        max_iter=1000,
-        random_state=42
-    )
-    
-    # Support Vector Regression
-    models['svr'] = SVRModel(
-        target_column=target_col,
-        feature_columns=feature_cols,
-        kernel='rbf',
-        C=1.0,
-        epsilon=0.1
-    )
-    
-    # Ensemble model
-    ensemble = EnsembleModel(
-        target_column=target_col,
-        feature_columns=feature_cols
-    )
-    
-    # Add top models to ensemble
-    top_models = ['random_forest', 'xgboost', 'lightgbm']
-    for model_name in top_models:
-        if model_name in models:
-            ensemble.add_model(models[model_name], weight=1.0)
-    
-    models['ensemble'] = ensemble
-    
-    print(f"✅ Created {len(models)} models: {list(models.keys())}")
-    print()
-    
-    return models
-
-
-def train_all_models(models, X, y):
-    """
-    🚀 Train all models on the data.
-    
-    Args:
-        models: Dictionary of models
-        X: Feature DataFrame
-        y: Target Series
-        
-    Returns:
-        Dictionary of trained models
-    """
-    print("🚀 Training all models...")
-    
-    trained_models = {}
-    failed_models = []
-    
-    for name, model in models.items():
-        try:
-            print(f"🔄 Training {name}...")
-            model.fit(X, y)
-            trained_models[name] = model
-            print(f"✅ {name} trained successfully")
-        except Exception as e:
-            print(f"❌ Error training {name}: {e}")
-            failed_models.append(name)
-            continue
-    
-    print(f"✅ Successfully trained {len(trained_models)} models")
-    if failed_models:
-        print(f"❌ Failed to train {len(failed_models)} models: {failed_models}")
-    print()
-    
-    return trained_models
-
-
-def evaluate_all_models(models, X, y):
-    """
-    📊 Evaluate all trained models.
-    
-    Args:
-        models: Dictionary of trained models
-        X: Feature DataFrame
-        y: Target Series
-        
-    Returns:
-        Dictionary of evaluation metrics for each model
-    """
-    print("📊 Evaluating all models...")
-    
-    evaluation_results = {}
-    
-    if not models:
-        print("⚠️  No trained models available for evaluation")
-        return evaluation_results
-    
-    for name, model in models.items():
-        try:
-            print(f"📊 Evaluating {name}...")
-            metrics = model.evaluate(X, y)
-            evaluation_results[name] = metrics
-            
-            # Log key metrics
-            if 'r2' in metrics:
-                print(f"   {name} R²: {metrics['r2']:.4f}")
-            if 'mae' in metrics:
-                print(f"   {name} MAE: {metrics['mae']:.2f}")
-                
-        except Exception as e:
-            print(f"❌ Error evaluating {name}: {e}")
-            continue
-    
-    print()
-    return evaluation_results
-
-
-def compare_model_performance(evaluation_results):
-    """
-    🔍 Compare model performance and create ranking.
-    
-    Args:
-        evaluation_results: Dictionary of evaluation metrics
-        
-    Returns:
-        DataFrame with model comparison
-    """
-    print("🔍 Comparing model performance...")
-    
-    if not evaluation_results:
-        print("⚠️  No model evaluation results available for comparison")
-        return pd.DataFrame()
-    
-    # Create comparison DataFrame
-    comparison_data = []
-    for model_name, metrics in evaluation_results.items():
-        row = {'Model': model_name}
-        row.update(metrics)
-        comparison_data.append(row)
-    
-    if comparison_data:
-        comparison_df = pd.DataFrame(comparison_data)
-        
-        # Sort by R² score if available, otherwise by MAE
-        if 'r2' in comparison_df.columns:
-            comparison_df = comparison_df.sort_values('r2', ascending=False)
-            print("🏆 Model Performance Ranking (by R² score):")
-        elif 'mae' in comparison_df.columns:
-            comparison_df = comparison_df.sort_values('mae', ascending=True)
-            print("🏆 Model Performance Ranking (by MAE score):")
-        else:
-            print("🏆 Model Performance Ranking:")
-        
-        for i, row in comparison_df.iterrows():
-            model_name = row['Model']
-            if 'r2' in row:
-                print(f"   {i+1}. {model_name}: R² = {row['r2']:.4f}")
-            elif 'mae' in row:
-                print(f"   {i+1}. {model_name}: MAE = {row['mae']:.2f}")
-            else:
-                print(f"   {i+1}. {model_name}")
-        
-        print()
-        return comparison_df
-    else:
-        print("⚠️  No valid model comparison data available")
-        return pd.DataFrame()
 
 
 def demonstrate_predictions(models, X, feature_cols, y=None):
-    """
-    🎯 Demonstrate predictions for different scenarios.
-    
-    Args:
-        models: Dictionary of trained models
-        X: Feature DataFrame
-        feature_cols: List of feature columns
-        y: Target Series (optional, for showing actual vs predicted)
-    """
+    """Run sample predictions and flag identical/divergent outputs."""
     print("🎯 DEMONSTRATING PREDICTIONS")
     print("=" * 50)
-    
-    if not models:
-        print("⚠️  No trained models available for predictions")
+
+    if not models or len(X) == 0:
+        print("⚠️  No models or no data available for predictions")
         return
-    
-    # Get sample data for predictions - use different rows for variety
-    if len(X) > 0:
-        # Select diverse samples from different parts of the dataset
-        sample_indices = []
-        if len(X) >= 3:
-            sample_indices = [0, len(X)//2, len(X)-1]  # First, middle, last
-        else:
-            sample_indices = list(range(len(X)))
-        
-        sample_data = X.iloc[sample_indices]
-        print(f"📊 Sample predictions for {len(sample_data)} data points:")
-        
-        for i, (idx, row) in enumerate(sample_data.iterrows()):
-            print(f"\n📊 Sample {i+1} (Row {idx}):")
-            
-            # Show key feature values for this sample
-            print("   🔍 Key Feature Values:")
-            key_features = [col for col in X.columns if any(key in col.lower() for key in 
-                          ['num_likes_linkedin_no_video', 'engagement_linkedin_no_video', 'day_of_week', 'is_weekend'])][:5]
-            for feat in key_features:
-                if feat in X.columns:
-                    print(f"      {feat}: {row[feat]:.2f}")
-            
-            # Show actual target value if available
-            if y is not None:
-                actual_value = y.iloc[idx] if hasattr(y, 'iloc') else y[idx]
-                print(f"   🎯 Actual Target Value: {actual_value:.2f}")
-            
-            print("   🤖 Model Predictions:")
-            for name, model in models.items():
-                try:
-                    prediction = model.predict(row.to_frame().T)
-                    if hasattr(prediction, '__len__') and len(prediction) > 0:
-                        pred_value = prediction[0]
-                    else:
-                        pred_value = prediction
-                    
-                    # Show difference from actual if available
-                    if y is not None:
-                        actual_value = y.iloc[idx] if hasattr(y, 'iloc') else y[idx]
-                        diff = pred_value - actual_value
-                        print(f"      {name}: {pred_value:.2f} (diff: {diff:+.2f})")
-                    else:
-                        print(f"      {name}: {pred_value:.2f}")
-                except Exception as e:
-                    print(f"      {name}: Error - {e}")
-        
-        # Check if all predictions are identical (potential issue)
-        print(f"\n🔍 PREDICTION ANALYSIS:")
-        if len(models) > 1:
-            all_predictions = {}
-            for name, model in models.items():
-                try:
-                    pred = model.predict(sample_data)
-                    all_predictions[name] = pred
-                except:
-                    continue
-            
-            # Check for identical predictions across samples
-            for model_name, predictions in all_predictions.items():
-                if len(set(predictions.round(2))) == 1:
-                    print(f"   ⚠️  WARNING: {model_name} gives identical predictions for all samples!")
-                    print(f"      This suggests overfitting or data leakage issues.")
-                
-            # Check for huge differences between models
-            if len(all_predictions) > 1:
-                pred_ranges = {}
-                for i in range(len(sample_data)):
-                    sample_preds = [preds[i] for preds in all_predictions.values()]
-                    pred_range = max(sample_preds) - min(sample_preds)
-                    pred_ranges[f"Sample {i+1}"] = pred_range
-                
-                max_range = max(pred_ranges.values())
-                if max_range > 50:  # Arbitrary threshold
-                    print(f"   ⚠️  WARNING: Large prediction differences detected!")
-                    print(f"      Maximum range: {max_range:.2f}")
-                    print(f"      This suggests model instability or data issues.")
-    else:
-        print("⚠️  No data available for predictions")
-    
-    print("\n💡 Prediction Insights:")
-    print("   • Different models may give different predictions")
-    print("   • Identical predictions across samples indicate potential issues")
-    print("   • Large prediction ranges suggest model instability")
-    print("   • Ensemble models often provide more stable results")
-    print("   • Use the best performing model for production")
-    print()
+
+    sample_indices = [0, len(X) // 2, len(X) - 1] if len(X) >= 3 else list(range(len(X)))
+    sample_data = X.iloc[sample_indices]
+    print(f"📊 Sample predictions for {len(sample_data)} data points:")
+
+    for i, (idx, row) in enumerate(sample_data.iterrows()):
+        print(f"\n📊 Sample {i + 1} (Row {idx}):")
+        if y is not None:
+            actual = y.iloc[idx] if hasattr(y, "iloc") else y[idx]
+            print(f"   🎯 Actual: {actual:.2f}")
+        for name, model in models.items():
+            try:
+                prediction = model.predict(row.to_frame().T)
+                pred_value = prediction[0] if hasattr(prediction, "__len__") else prediction
+                if y is not None:
+                    actual = y.iloc[idx] if hasattr(y, "iloc") else y[idx]
+                    print(f"      {name}: {pred_value:.2f} (diff: {pred_value - actual:+.2f})")
+                else:
+                    print(f"      {name}: {pred_value:.2f}")
+            except Exception as exc:
+                print(f"      {name}: Error - {exc}")
+
+    print("\n💡 Identical predictions across samples suggest overfitting / leakage;")
+    print("   large divergence between models suggests instability.\n")
 
 
 def show_feature_importance(models, feature_cols):
-    """
-    🎯 Show feature importance analysis.
-    
-    Args:
-        models: Dictionary of trained models
-        feature_cols: List of feature columns
-    """
+    """Print top-10 feature importances from the first tree model that has them."""
     print("🎯 FEATURE IMPORTANCE ANALYSIS")
     print("=" * 50)
-    
-    if not models:
-        print("⚠️  No trained models available for feature importance analysis")
-        return
-    
-    # Try to get feature importance from tree-based models
-    tree_models = ['random_forest', 'xgboost', 'lightgbm', 'catboost']
-    
-    for model_name in tree_models:
-        if model_name in models:
-            try:
-                model = models[model_name]
-                if hasattr(model, 'get_feature_importance'):
-                    importance = model.get_feature_importance()
-                    if importance is not None and len(importance) > 0:
-                        print(f"🔍 {model_name.upper()} Feature Importance:")
-                        
-                        # Create importance DataFrame from dictionary
-                        importance_df = pd.DataFrame([
-                            {'Feature': feature, 'Importance': score}
-                            for feature, score in importance.items()
-                        ]).sort_values('Importance', ascending=False)
-                        
-                        # Show top 10 features
-                        top_features = importance_df.head(10)
-                        for i, (_, row) in enumerate(top_features.iterrows()):
-                            print(f"   {i+1:2d}. {row['Feature']:30} {row['Importance']:8.4f}")
-                        
-                        print()
-                        return  # Found feature importance, exit
-                        
-            except Exception as e:
-                print(f"⚠️  Error getting feature importance from {model_name}: {e}")
-                continue
-    
-    print("⚠️  No feature importance available from any model")
-    print("   • Tree-based models (Random Forest, XGBoost, LightGBM, CatBoost) provide feature importance")
-    print("   • Linear models can provide coefficient importance")
-    print("   • Consider using a tree-based model for feature importance analysis")
-    print()
+
+    for model_name in ("random_forest", "xgboost", "lightgbm", "catboost"):
+        model = models.get(model_name)
+        if model is None or not hasattr(model, "get_feature_importance"):
+            continue
+        try:
+            importance = model.get_feature_importance()
+            if importance:
+                print(f"🔍 {model_name.upper()} Feature Importance (top 10):")
+                ranked = sorted(importance.items(), key=lambda kv: kv[1], reverse=True)
+                for i, (feature, score) in enumerate(ranked[:10], 1):
+                    print(f"   {i:2d}. {feature:30} {score:8.4f}")
+                print()
+                return
+        except Exception as exc:
+            print(f"⚠️  {model_name}: {exc}")
+
+    print("⚠️  No feature importance available (use a tree-based model)\n")
 
 
 def run_comprehensive_test():
-    """
-    🚀 Run the complete predictive modeling test suite.
-    
-    This function demonstrates all capabilities of the predictive modeling system.
-    """
-    print("🚀 PREDICTIVE MODELING COMPREHENSIVE TEST")
+    """Run the full predictive-modeling demo end to end."""
+    print("🚀 PREDICTIVE MODELING DEMO")
     print("=" * 60)
-    print("This test demonstrates predictive modeling capabilities")
-    print("Perfect for learning and testing your implementation")
-    print("=" * 60)
-    print()
-    
+
     try:
-        # Step 1: Choose data source and load data
         data_source = choose_data_source()
-        
-        # Step 1.5: Get sample size if using real data
-        if data_source == "real":
-            sample_size = get_sample_size()
-        else:
-            sample_size = 90  # Default for sample data
-        
-        if data_source == "sample":
-            df = create_sample_data(sample_size)
-        else:  # real data
-            df = load_real_data_from_supabase(sample_size)
-        
-        # Step 2: Show available features in the database
-        print("📊 AVAILABLE FEATURES IN YOUR DATABASE")
-        print("=" * 50)
-        print("These are the columns available for modeling:")
+        sample_size = get_sample_size() if data_source == "real" else 90
+        df = (
+            create_sample_data(sample_size)
+            if data_source == "sample"
+            else load_real_data_from_supabase(sample_size)
+        )
+
+        print("\n📊 Columns available for modeling:")
         for i, col in enumerate(df.columns, 1):
             print(f"   {i:2d}. {col}")
         print()
-        
-        # Show initial data quality
         show_data_quality_info(df, "Initial Data Load")
-        
-        # Step 3: Initialize feature engineer
-        print("🔧 Initializing FeatureEngineer...")
+
         fe = FeatureEngineer()
-        print("✅ FeatureEngineer initialized successfully!")
-        print()
-        
-        # Step 4: Apply feature engineering silently
         df_with_features = apply_feature_engineering_silently(df, fe)
-        
-        # Step 4.5: Diagnose potential data issues
-        diagnose_data_issues(df_with_features, target_col='num_likes_linkedin_no_video')
-        
-        # Step 5: Prepare data for modeling
-        X, y, feature_cols = prepare_modeling_data(df_with_features)
-        
-        # Show data quality after preparation
+        diagnose_data_issues(df_with_features, target_col="num_likes_linkedin_no_video")
+
+        # Reusable pipeline logic (leakage removal + imputation + target resolution).
+        target_guess = "num_likes_linkedin_no_video"
+        raw_feature_cols = [c for c in df_with_features.columns if c not in ("date", target_guess)]
+        leakage = find_leakage_features(raw_feature_cols, target_guess)
+        if leakage:
+            print(f"🚫 Removing {len(leakage)} data-leakage features "
+                  f"(e.g. {', '.join(leakage[:3])})\n")
+
+        X, y, feature_cols = prepare_modeling_data(df_with_features, target_col=target_guess)
+        print(f"📊 Prepared X={X.shape}, target='{y.name}', features={len(feature_cols)}\n")
         show_data_quality_info(X, "After Data Preparation (Features)")
-        show_data_quality_info(pd.DataFrame(y), "After Data Preparation (Target)")
-        
-        # Step 6: Create all models
+
         models = create_all_models(y.name, feature_cols)
-        
-        # Step 7: Train all models
-        trained_models = train_all_models(models, X, y)
-        
-        # Step 8: Evaluate all models
+        print(f"🏗️  Created {len(models)} models: {list(models.keys())}\n")
+
+        trained_models, failed = train_all_models(models, X, y)
+        print(f"✅ Trained {len(trained_models)} models" +
+              (f"; failed: {failed}" if failed else "") + "\n")
+
         evaluation_results = evaluate_all_models(trained_models, X, y)
-        
-        # Step 9: Compare model performance
         comparison_df = compare_model_performance(evaluation_results)
-        
-        # Step 10: Demonstrate predictions
+        if not comparison_df.empty:
+            print("🏆 Model Performance Ranking:")
+            for i, row in comparison_df.iterrows():
+                if "r2" in row:
+                    print(f"   {i + 1}. {row['Model']}: R² = {row['r2']:.4f}")
+                elif "mae" in row:
+                    print(f"   {i + 1}. {row['Model']}: MAE = {row['mae']:.2f}")
+            print()
+
         demonstrate_predictions(trained_models, X, feature_cols, y)
-        
-        # Step 11: Show feature importance
         show_feature_importance(trained_models, feature_cols)
-        
-        # Final summary
-        print("🎉 PREDICTIVE MODELING TEST COMPLETED SUCCESSFULLY!")
+
+        print("🎉 PREDICTIVE MODELING DEMO COMPLETED")
         print("=" * 60)
-        print(f"📊 Final dataset shape: {df_with_features.shape}")
-        print(f"✨ Total features created: {len(feature_cols)}")
+        print(f"📊 Final shape: {df_with_features.shape} | features: {len(feature_cols)} "
+              f"| models: {len(trained_models)}")
         print(f"📅 Data covers: {df['date'].min()} to {df['date'].max()}")
-        print(f"🤖 Models tested: {len(trained_models)}")
-        print()
-        
-        print("🔍 What you've learned:")
-        print("   ✅ How to prepare data for predictive modeling")
-        print("   ✅ How to create and train multiple ML models")
-        print("   ✅ How to compare model performance")
-        print("   ✅ How to make predictions with different models")
-        print("   ✅ How to interpret feature importance")
-        print()
-        
-        print("🚀 Next steps:")
-        print("   - Use the best performing model for your predictions")
-        print("   - Experiment with different feature combinations")
-        print("   - Collect more data to improve model performance")
-        print("   - Deploy your model for real-time predictions")
-        
         return True
-        
-    except Exception as e:
-        print(f"❌ Error during testing: {str(e)}")
+
+    except Exception as exc:
+        print(f"❌ Error during demo: {exc}")
         import traceback
+
         traceback.print_exc()
         return False
 
 
 if __name__ == "__main__":
-    """
-    🎯 Main execution block.
-    
-    Run this script directly to test your predictive modeling implementation.
-    """
-    print("🧠 Predictive Modeling Test Script")
-    print("=" * 40)
-    print("Testing and learning the predictive modeling system")
-    print("=" * 40)
-    print()
-    
+    print("🧠 Predictive Modeling Demo\n")
     success = run_comprehensive_test()
-    
-    if success:
-        print("\n🎯 Test completed successfully!")
-        print("Your predictive modeling system is working correctly.")
-    else:
-        print("\n❌ Test failed. Check the error messages above.")
-        print("Make sure your models and feature engineering are properly implemented.")
-    
-    print("\n📚 Educational Notes:")
-    print("- This script shows how to build and evaluate ML models")
-    print("- Each model demonstrates different prediction approaches")
-    print("- You can choose between sample data and real Supabase data")
-    print("- Sample data is perfect for learning and testing")
-    print("- Real data tests your actual database connection")
-    print("- The ensemble model combines multiple models for better performance")
+    print("\n🎯 Demo completed." if success else "\n❌ Demo failed; see errors above.")

@@ -267,7 +267,7 @@ make format
 
 1. Add feature engineering logic in `src/features/feature_engineering.py`
 2. Update the `FeatureEngineer` class
-3. Add tests in `tests/demo_feature_engineering.py`
+3. Add unit tests in `tests/test_feature_engineering.py` (pure logic) — `tests/demo_feature_engineering.py` is an interactive educational walkthrough, not a pytest suite
 
 ### Database Schema
 
