@@ -21,7 +21,7 @@ This document is your comprehensive guide to learning data science by building a
 | Component | Status | Purpose | Test Script |
 |-----------|--------|---------|-------------|
 | **Data Layer** | ✅ Complete | Connect to Supabase database | `tools/supabase_connection_check.py` |
-| **Feature Engineering** | ✅ Complete | Transform raw data into features | `tests/test_feature_engineering.py` |
+| **Feature Engineering** | ✅ Complete | Transform raw data into features | `tests/demo_feature_engineering.py` |
 | **Machine Learning** | 🔄 Next Step | Train and evaluate models | Coming in Step 3 |
 | **API Layer** | 🔄 Coming Soon | Make predictions available | Coming in Step 4 |
 | **Dashboard** | 🔄 Coming Soon | Visualize results | Coming in Step 5 |
@@ -43,9 +43,10 @@ This document is your comprehensive guide to learning data science by building a
 # Clone and setup
 git clone <repository-url>
 cd content-performance-predictor
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+python -m venv .venv
+# Invoke the venv's interpreter directly (no activation needed):
+.venv/bin/python -m pip install -r requirements.txt    # POSIX
+# .venv\Scripts\python.exe -m pip install -r requirements.txt  # Windows
 ```
 
 ---
@@ -193,7 +194,7 @@ The `posts` table has columns like:
 
 ### Testing and Learning Feature Engineering
 
-**What we built:** A comprehensive test script (`tests/test_feature_engineering.py`) that demonstrates every feature engineering technique step-by-step.
+**What we built:** A comprehensive demo script (`tests/demo_feature_engineering.py`) that demonstrates every feature engineering technique step-by-step.
 
 **Why this script exists:**
 - **Educational:** Shows how each feature is created and why it matters
@@ -204,7 +205,7 @@ The `posts` table has columns like:
 **Let's explore it step by step:**
 
 ```python
-# Open tests/test_feature_engineering.py
+# Open tests/demo_feature_engineering.py
 def create_sample_data():
     """Create realistic sample data matching Supabase schema."""
     dates = pd.date_range('2023-01-01', '2023-12-31', freq='D')
@@ -310,9 +311,9 @@ def demonstrate_engagement_features(df):
     df_with_engagement = fe.create_engagement_features(df)
     
     print("📊 Engagement Features Created:")
-    print(f"   - Engagement rate: engagement_rate")
-    print(f"   - Interaction ratio: interaction_ratio")
-    print(f"   - Viral coefficient: viral_coefficient")
+    print(f"   - Engagement rate: engagement_linkedin_no_video_rate")
+    print(f"   - Comment ratio: linkedin_no_video_comment_ratio")
+    print(f"   - Share ratio: linkedin_no_video_share_ratio")
 ```
 
 **4. Cross-Platform Features:**
@@ -417,9 +418,8 @@ Composite Score = 0.3 × Variance + 0.25 × Completeness + 0.25 × Distribution 
 
 **Try it yourself:**
 ```bash
-# Run the comprehensive test
-cd tests
-python test_feature_engineering.py
+# Run the comprehensive demo from the repo root
+python tests/demo_feature_engineering.py
 
 # Choose option 1 for sample data first
 # Then try option 2 with real Supabase data
@@ -433,7 +433,7 @@ python test_feature_engineering.py
 
 ### Testing Your Feature Engineering
 
-**What we built:** The `tests/test_feature_engineering.py` script serves multiple purposes:
+**What we built:** The `tests/demo_feature_engineering.py` script serves multiple purposes:
 
 1. **Educational Demonstration:** Shows each feature type step-by-step
 2. **Interactive Testing:** Choose between sample and real data
@@ -443,11 +443,8 @@ python test_feature_engineering.py
 **How to use it:**
 
 ```bash
-# Navigate to tests directory
-cd tests
-
-# Run the comprehensive test
-python test_feature_engineering.py
+# Run the comprehensive demo from the repo root
+python tests/demo_feature_engineering.py
 
 # Choose your data source:
 # 1. Sample data (recommended for learning)

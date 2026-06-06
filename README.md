@@ -15,21 +15,21 @@ This project provides:
 
 ```
 content-performance-predictor/
-├── .github/workflows/         # CI/CD pipelines
-├── data/                      # Raw, processed, and external data
+├── data/                      # Raw, processed, and external data (created at runtime)
 │   ├── raw/                   # Raw data files
 │   ├── processed/             # Processed data files
 │   └── external/              # External data sources
-├── notebooks/                 # EDA, feature engineering, modeling
 ├── src/                       # Source code
 │   ├── data/                  # Data loading and processing
 │   │   ├── database.py        # Supabase client
 │   │   └── data_loader.py     # Data loading utilities
 │   ├── features/              # Feature engineering
-│   │   └── feature_engineering.py
+│   │   ├── feature_engineering.py # Feature creation
+│   │   └── feature_ranking.py # Data-driven feature ranking
 │   ├── models/                # ML models
 │   │   ├── base_model.py      # Base model class
-│   │   └── prediction_models.py # Specific models
+│   │   ├── prediction_models.py # Specific models
+│   │   └── model_pipeline.py  # Training/evaluation pipeline helpers
 │   ├── api/                   # FastAPI application
 │   │   └── prediction_api.py  # REST API
 │   ├── utils/                 # Utilities
@@ -37,18 +37,24 @@ content-performance-predictor/
 │   └── cli.py                 # Command-line interface
 ├── dash_app/                  # Dashboard app (Dash)
 │   └── app.py                 # Dash application
-├── tests/                     # Unit tests
+├── tests/                     # Unit tests + educational demo scripts
+├── tools/                     # Operational helper scripts
+│   └── supabase_connection_check.py
 ├── config/                    # Configuration files
 │   └── config.yaml            # Main configuration
-├── mlflow/                    # MLflow artifacts
-├── models/                    # Trained models
-├── logs/                      # Application logs
+├── mlflow/                    # MLflow artifacts (created at runtime)
+├── models/                    # Trained models (created at runtime)
+├── logs/                      # Application logs (created at runtime)
 ├── requirements.txt           # Python dependencies
 ├── setup.py                   # Package setup
 ├── Dockerfile                 # Docker configuration
 ├── docker-compose.yml         # Docker Compose setup
 ├── Makefile                   # Development tasks
 ├── .env.example               # Environment variables template
+├── CLAUDE.md                  # AI coding-agent instructions
+├── AGENTS.md                  # Pointer to CLAUDE.md for non-Claude agents
+├── HOW-TO.md                  # Data science learning walkthrough
+├── SUPABASE_SCHEMA.md         # Database schema reference
 └── README.md                  # This file
 ```
 
@@ -81,7 +87,6 @@ content-performance-predictor/
 
 ### DevOps & Development
 - **Containerization:** Docker, Docker Compose
-- **CI/CD:** GitHub Actions
 - **Code Quality:** black, flake8, pre-commit
 - **Testing:** pytest
 - **Documentation:** MkDocs, mkdocs-material
@@ -267,7 +272,7 @@ make format
 
 1. Add feature engineering logic in `src/features/feature_engineering.py`
 2. Update the `FeatureEngineer` class
-3. Add unit tests in `tests/test_feature_engineering.py` (pure logic) — `tests/demo_feature_engineering.py` is an interactive educational walkthrough, not a pytest suite
+3. Add unit tests in `tests/test_feature_ranking.py` (pure logic) — `tests/demo_feature_engineering.py` is an interactive educational walkthrough, not a pytest suite
 
 ### Database Schema
 
