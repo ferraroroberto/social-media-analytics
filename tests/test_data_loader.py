@@ -53,14 +53,54 @@ class TestDataLoader:
             'num_comments_linkedin_no_video': [10, 15],
             'num_reshares_linkedin_no_video': [5, 8]
         })
-        
+
         # Test
         processed_df = self.data_loader.preprocess_posts_data(posts_df)
-        
+
         assert 'engagement_linkedin_no_video' in processed_df.columns
         assert 'day_of_week' in processed_df.columns
         assert 'is_weekend' in processed_df.columns
         assert processed_df['engagement_linkedin_no_video'].iloc[0] == 65  # 50 + 10 + 5
+
+    def test_preprocess_posts_data_no_nan_from_missing_columns(self):
+        """Regression: pd.Series(0) default causes index-alignment NaN for all
+        rows except index 0. Using a scalar default (or column-guard) must
+        produce zero-NaN engagement columns even with a multi-row frame where
+        comments/reshares columns are absent."""
+        posts_df = pd.DataFrame({
+            'date': pd.date_range('2023-01-01', periods=5),
+            'num_likes_linkedin_no_video': [10, 20, 30, 40, 50],
+            # comments and reshares columns deliberately absent
+        })
+
+        processed_df = self.data_loader.preprocess_posts_data(posts_df)
+
+        assert 'engagement_linkedin_no_video' in processed_df.columns
+        # Every row must be non-NaN (the old pd.Series(0) default blanked rows 1-4)
+        assert processed_df['engagement_linkedin_no_video'].isna().sum() == 0
+        # Values must equal likes only (no comments/reshares to add)
+        assert list(processed_df['engagement_linkedin_no_video']) == [10, 20, 30, 40, 50]
+
+    def test_preprocess_posts_data_engagement_rate_no_nan_without_followers(self):
+        """Regression: pd.Series(1) default for missing follower column causes
+        engagement_rate to be NaN for every row except index 0. When the
+        followers column is absent the engagement_rate column must not be
+        computed at all (not silently all-zero / all-NaN via a stale default)."""
+        posts_df = pd.DataFrame({
+            'date': pd.date_range('2023-01-01', periods=4),
+            'num_likes_linkedin_no_video': [10, 20, 30, 40],
+            'num_comments_linkedin_no_video': [1, 2, 3, 4],
+            'num_reshares_linkedin_no_video': [0, 0, 0, 0],
+            # num_followers_linkedin deliberately absent
+        })
+
+        processed_df = self.data_loader.preprocess_posts_data(posts_df)
+
+        # engagement column must be present and fully populated
+        assert 'engagement_linkedin_no_video' in processed_df.columns
+        assert processed_df['engagement_linkedin_no_video'].isna().sum() == 0
+        # engagement_rate must NOT be computed when followers are absent
+        assert 'engagement_rate_linkedin_no_video' not in processed_df.columns
     
     def test_preprocess_profile_data(self):
         """Test profile data preprocessing."""

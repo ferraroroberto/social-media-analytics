@@ -56,17 +56,23 @@ class DataLoader:
                 # Likes
                 likes_col = f'num_likes_{platform}_{content_type}'
                 if likes_col in df.columns:
+                    comments_col = f'num_comments_{platform}_{content_type}'
+                    reshares_col = f'num_reshares_{platform}_{content_type}'
                     df[f'engagement_{platform}_{content_type}'] = (
-                        df[likes_col].fillna(0) + 
-                        df.get(f'num_comments_{platform}_{content_type}', pd.Series(0)).fillna(0) + 
-                        df.get(f'num_reshares_{platform}_{content_type}', pd.Series(0)).fillna(0)
+                        df[likes_col].fillna(0) +
+                        (df[comments_col].fillna(0) if comments_col in df.columns else 0) +
+                        (df[reshares_col].fillna(0) if reshares_col in df.columns else 0)
                     )
-                
-                # Engagement rate (if we have follower data)
-                if f'engagement_{platform}_{content_type}' in df.columns:
+
+                # Engagement rate (computed here only when follower data is
+                # already in the posts frame; the normal path is to compute it
+                # after the profile merge in create_platform_dataset).
+                engagement_col = f'engagement_{platform}_{content_type}'
+                followers_col = f'num_followers_{platform}'
+                if engagement_col in df.columns and followers_col in df.columns:
                     df[f'engagement_rate_{platform}_{content_type}'] = (
-                        df[f'engagement_{platform}_{content_type}'] / 
-                        df.get(f'num_followers_{platform}', pd.Series(1)).fillna(1)
+                        df[engagement_col] /
+                        df[followers_col].replace(0, 1).fillna(1)
                     )
         
         # Create aggregated metrics
@@ -130,31 +136,43 @@ class DataLoader:
         """
         # Merge posts and profile data
         df = posts_df.merge(profile_df, on='date', how='left', suffixes=('', '_profile'))
-        
-        # Select platform-specific columns
-        platform_cols = ['date', 'day_of_week', 'month', 'quarter', 'year', 'is_weekend']
-        
+
+        # Compute engagement_rate after the merge so follower data is available.
+        # preprocess_posts_data only sets it when followers are already in the
+        # posts frame (rare); the standard path computes it here.
+        followers_col = f'num_followers_{platform}'
         for content_type in self.content_types:
-            # Engagement metrics
+            engagement_col = f'engagement_{platform}_{content_type}'
+            rate_col = f'engagement_rate_{platform}_{content_type}'
+            if engagement_col in df.columns and followers_col in df.columns and rate_col not in df.columns:
+                df[rate_col] = df[engagement_col] / df[followers_col].replace(0, 1).fillna(1)
+
+        # Select platform-specific columns (only those that actually exist)
+        platform_cols = ['date', 'day_of_week', 'month', 'quarter', 'year', 'is_weekend']
+
+        for content_type in self.content_types:
             engagement_col = f'engagement_{platform}_{content_type}'
             if engagement_col in df.columns:
-                platform_cols.extend([
+                for col in [
                     engagement_col,
                     f'engagement_rate_{platform}_{content_type}',
                     f'num_likes_{platform}_{content_type}',
                     f'num_comments_{platform}_{content_type}',
-                    f'num_reshares_{platform}_{content_type}'
-                ])
-        
-        # Profile metrics
-        followers_col = f'num_followers_{platform}'
+                    f'num_reshares_{platform}_{content_type}',
+                ]:
+                    if col in df.columns:
+                        platform_cols.append(col)
+
+        # Profile metrics (only those that actually exist)
         if followers_col in df.columns:
-            platform_cols.extend([
+            for col in [
                 followers_col,
                 f'follower_growth_{platform}',
-                f'follower_growth_rate_{platform}'
-            ])
-        
+                f'follower_growth_rate_{platform}',
+            ]:
+                if col in df.columns:
+                    platform_cols.append(col)
+
         platform_df = df[platform_cols].copy()
         platform_df = platform_df.dropna(subset=[col for col in platform_cols if col.startswith(f'engagement_{platform}')])
         
