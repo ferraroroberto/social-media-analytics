@@ -10,7 +10,7 @@ setup(
     name="content-performance-predictor",
     version="0.1.0",
     author="Roberto Ferraro",
-    author_email="roberto.ferraro@example.com",
+    author_email="roberto.ferraro@gmail.com",
     description="A portfolio-ready, end-to-end data science project to analyze and predict social media content performance",
     long_description=long_description,
     long_description_content_type="text/markdown",
