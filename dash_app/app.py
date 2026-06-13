@@ -54,8 +54,7 @@ app.layout = dbc.Container([
                 dbc.Tab(label="Performance Prediction", tab_id="prediction"),
                 dbc.Tab(label="Caption Analyzer", tab_id="caption"),
                 dbc.Tab(label="Best Posting Times", tab_id="times"),
-                dbc.Tab(label="Platform Trends", tab_id="trends"),
-                dbc.Tab(label="Cross-Platform Analysis", tab_id="cross-platform")
+                dbc.Tab(label="Platform Trends", tab_id="trends")
             ], id="tabs", active_tab="prediction")
         ])
     ], className="mb-4"),
@@ -192,19 +191,6 @@ trends_layout = dbc.Row([
     ], width=12)
 ])
 
-# Cross-platform analysis tab content
-cross_platform_layout = dbc.Row([
-    dbc.Col([
-        dbc.Card([
-            dbc.CardHeader("Cross-Platform Analysis"),
-            dbc.CardBody([
-                dbc.Button("Load Analysis", id="cross-platform-btn", color="primary"),
-                html.Div(id="cross-platform-result")
-            ])
-        ])
-    ], width=12)
-])
-
 @app.callback(
     Output("tab-content", "children"),
     Input("tabs", "active_tab")
@@ -219,8 +205,6 @@ def render_tab_content(active_tab):
         return times_layout
     elif active_tab == "trends":
         return trends_layout
-    elif active_tab == "cross-platform":
-        return cross_platform_layout
     else:
         return "Select a tab"
 
@@ -439,30 +423,6 @@ def analyze_trends(n_clicks, platform, days_back):
         else:
             return dbc.Alert(f"Error: {response.text}", color="danger")
             
-    except Exception as e:
-        return dbc.Alert(f"Error: {str(e)}", color="danger")
-
-@app.callback(
-    Output("cross-platform-result", "children"),
-    Input("cross-platform-btn", "n_clicks"),
-    prevent_initial_call=True
-)
-def analyze_cross_platform(n_clicks):
-    """Analyze cross-platform performance."""
-    if not n_clicks:
-        return ""
-    
-    try:
-        # This would typically load data and create cross-platform analysis
-        # For now, return a placeholder
-        return dbc.Card([
-            dbc.CardBody([
-                html.H4("Cross-Platform Analysis", className="card-title"),
-                html.P("Cross-platform analysis feature coming soon..."),
-                html.P("This will show performance comparisons across all platforms.")
-            ])
-        ])
-        
     except Exception as e:
         return dbc.Alert(f"Error: {str(e)}", color="danger")
 

@@ -6,9 +6,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timedelta
 import logging
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from sklearn.feature_extraction.text import TfidfVectorizer
 import re
-import nltk
 from textblob import TextBlob
 from ..constants import PLATFORMS, CONTENT_TYPES
 
@@ -72,7 +70,6 @@ class FeatureEngineer:
     def __init__(self):
         """Initialize feature engineer."""
         self.scalers = {}
-        self.vectorizers = {}
         self.feature_columns = []
         
     def create_temporal_features(self, df: pd.DataFrame, date_col: str = 'date') -> pd.DataFrame:
@@ -431,45 +428,3 @@ class FeatureEngineer:
             return TextBlob(str(text)).sentiment.polarity
         except:
             return 0.0
-    
-    def get_feature_importance_ranking(self, feature_cols: List[str]) -> List[str]:
-        """
-        Get feature importance ranking based on domain knowledge.
-        
-        Args:
-            feature_cols: List of feature columns
-            
-        Returns:
-            Ranked list of features
-        """
-        # This is a simplified ranking based on domain knowledge
-        # In practice, you would use actual feature importance from models
-        
-        high_importance = [
-            'engagement_linkedin_no_video', 'engagement_instagram_no_video',
-            'num_followers_linkedin', 'num_followers_instagram',
-            'day_of_week', 'is_weekend'
-        ]
-        
-        medium_importance = [
-            'engagement_rate_linkedin_no_video', 'engagement_rate_instagram_no_video',
-            'follower_growth_linkedin', 'follower_growth_instagram',
-            'month', 'quarter'
-        ]
-        
-        low_importance = [
-            'year', 'is_holiday', 'is_month_start', 'is_month_end'
-        ]
-        
-        # Rank features
-        ranked_features = []
-        for importance_level in [high_importance, medium_importance, low_importance]:
-            for feature in importance_level:
-                if feature in feature_cols:
-                    ranked_features.append(feature)
-        
-        # Add remaining features
-        remaining_features = [f for f in feature_cols if f not in ranked_features]
-        ranked_features.extend(remaining_features)
-        
-        return ranked_features

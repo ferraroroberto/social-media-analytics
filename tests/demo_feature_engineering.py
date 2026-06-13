@@ -226,13 +226,6 @@ def demonstrate_feature_importance(df, fe):
             print(f"   {i:2d}. {feature:<30} {corr:>6.3f} ({strength})")
         print()
 
-    # Domain-knowledge ranking from the FeatureEngineer.
-    try:
-        ranked_features = fe.get_feature_importance_ranking(feature_cols)
-    except Exception as exc:
-        print(f"⚠️  Domain ranking failed ({exc}); using alphabetical.\n")
-        ranked_features = sorted(feature_cols)
-
     # Data-driven analyses (all delegated to feature_ranking).
     top = feature_cols[:15]
     variance_data = variance_analysis(df, top)
@@ -269,16 +262,7 @@ def demonstrate_feature_importance(df, fe):
             print(f"   {i:2d}. {s['feature']:<30} Score: {s['composite_score']:>6.3f}")
         print()
 
-        # Compare data-driven vs domain-knowledge top 10.
-        math_top = [s["feature"] for s in scores[:10]]
-        domain_top = ranked_features[:10]
-        common = set(math_top) & set(domain_top)
-        print(f"📊 Data-driven vs domain ranking: {len(common)} features in both top 10s")
-        if common:
-            print("   Golden features (both methods):", ", ".join(sorted(common)))
-        print()
-
-    return ranked_features, target_variable
+    return target_variable
 
 
 def run_comprehensive_test():
