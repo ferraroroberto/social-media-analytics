@@ -34,22 +34,35 @@ class BaseModel(ABC, BaseEstimator):
         self.is_fitted = False
         self.metrics = {}
         self.feature_importance = {}
+        # Categorical encoding state captured at fit time and reused at predict
+        # time so a given string always maps to the same integer code.
+        self._cat_categories: Dict[str, pd.Index] = {}
         
     @abstractmethod
     def _create_model(self) -> Any:
         """Create the underlying model instance."""
         pass
     
-    @staticmethod
-    def _clean_features(X: pd.DataFrame) -> pd.DataFrame:
+    def _clean_features(self, X: pd.DataFrame, fit: bool = False) -> pd.DataFrame:
         """
         Apply per-column type handling used identically at fit time and predict time.
 
         Numeric columns: fill missing values with median (fallback 0).
-        Other columns: fill missing with 'missing', then encode as Categorical codes.
+        Other columns: fill missing with 'missing', then encode as Categorical codes
+        using a fixed category mapping learned at fit time.
+
+        The category mapping for each non-numeric column is captured on ``self`` the
+        first time the column is seen (``fit=True``) and reused on every subsequent
+        call (``fit=False``). This keeps a given string mapped to the same integer
+        code across train and predict — encoding it independently per call (the old
+        behaviour) let the same value get a different code whenever the set of values
+        present in the input changed. Values unseen at fit time encode to ``-1``,
+        pandas' standard "not in categories" sentinel.
 
         Args:
             X: Feature DataFrame (a copy is made internally).
+            fit: When True, learn and store each non-numeric column's categories on
+                ``self._cat_categories``. When False, reuse the stored categories.
 
         Returns:
             Cleaned DataFrame ready for the underlying sklearn estimator.
@@ -63,9 +76,18 @@ class BaseModel(ABC, BaseEstimator):
                     median_val = 0
                 X_clean[col] = X_clean[col].fillna(median_val)
             else:
-                # For categorical/string columns, encode all values as categories
-                X_clean[col] = X_clean[col].fillna('missing')
-                X_clean[col] = pd.Categorical(X_clean[col]).codes
+                # For categorical/string columns, encode against a stable mapping.
+                filled = X_clean[col].fillna('missing')
+                if fit:
+                    categories = pd.Categorical(filled)
+                    self._cat_categories[col] = categories.categories
+                    X_clean[col] = categories.codes
+                else:
+                    # Reuse the fitted categories so codes stay consistent. Fall back
+                    # to per-call categories only if the column was never seen at fit
+                    # time (e.g. a column absent from training).
+                    categories = self._cat_categories.get(col)
+                    X_clean[col] = pd.Categorical(filled, categories=categories).codes
         return X_clean
 
     def fit(self, X: pd.DataFrame, y: pd.Series) -> 'BaseModel':
@@ -86,8 +108,8 @@ class BaseModel(ABC, BaseEstimator):
         if self.feature_columns:
             X = X[self.feature_columns]
 
-        # Handle different column types
-        X_clean = self._clean_features(X)
+        # Handle different column types — learn the categorical mapping here.
+        X_clean = self._clean_features(X, fit=True)
 
         # Remove any rows with missing target values
         mask = ~y.isnull()
@@ -125,8 +147,8 @@ class BaseModel(ABC, BaseEstimator):
         if self.feature_columns:
             X = X[self.feature_columns]
 
-        # Handle different column types (same logic as fit — delegates to _clean_features)
-        X_clean = self._clean_features(X)
+        # Handle different column types — reuse the categorical mapping learned at fit.
+        X_clean = self._clean_features(X, fit=False)
 
         try:
             predictions = self.model.predict(X_clean)
@@ -211,9 +233,10 @@ class BaseModel(ABC, BaseEstimator):
             'model': self.model,
             'is_fitted': self.is_fitted,
             'metrics': self.metrics,
-            'feature_importance': self.feature_importance
+            'feature_importance': self.feature_importance,
+            'cat_categories': self._cat_categories
         }
-        
+
         joblib.dump(model_data, filepath)
         logger.info(f"Model saved to {filepath}")
     
@@ -245,7 +268,10 @@ class BaseModel(ABC, BaseEstimator):
         instance.is_fitted = model_data['is_fitted']
         instance.metrics = model_data['metrics']
         instance.feature_importance = model_data['feature_importance']
-        
+        # Restore categorical encoding mapping (absent in models saved before this
+        # field existed → empty dict, matching the pre-fit default).
+        instance._cat_categories = model_data.get('cat_categories', {})
+
         logger.info(f"Model loaded from {filepath}")
         return instance
     
