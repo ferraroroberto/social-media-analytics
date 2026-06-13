@@ -12,9 +12,22 @@ from datetime import datetime, timedelta, date
 import requests
 import json
 import os
+import sys
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# This module is launched as a script (``python dash_app/app.py``), so only its
+# own directory is on sys.path. Put the repo root on the path so the dashboard
+# shares the project's single source of truth for the platform/content-type
+# vocabulary instead of re-listing it here.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from src.constants import PLATFORMS, CONTENT_TYPES, platform_label, content_type_label
+
+# Dropdown option lists, built once from the canonical vocabulary.
+PLATFORM_OPTIONS = [{"label": platform_label(p), "value": p} for p in PLATFORMS]
+CONTENT_TYPE_OPTIONS = [{"label": content_type_label(c), "value": c} for c in CONTENT_TYPES]
 
 # Initialize Dash app
 app = dash.Dash(
@@ -63,13 +76,7 @@ prediction_layout = dbc.Row([
                         dbc.Label("Platform"),
                         dcc.Dropdown(
                             id="platform-dropdown",
-                            options=[
-                                {"label": "LinkedIn", "value": "linkedin"},
-                                {"label": "Instagram", "value": "instagram"},
-                                {"label": "Twitter", "value": "twitter"},
-                                {"label": "Substack", "value": "substack"},
-                                {"label": "Threads", "value": "threads"}
-                            ],
+                            options=PLATFORM_OPTIONS,
                             value="linkedin"
                         )
                     ], width=6),
@@ -77,10 +84,7 @@ prediction_layout = dbc.Row([
                         dbc.Label("Content Type"),
                         dcc.Dropdown(
                             id="content-type-dropdown",
-                            options=[
-                                {"label": "No Video", "value": "no_video"},
-                                {"label": "Video", "value": "video"}
-                            ],
+                            options=CONTENT_TYPE_OPTIONS,
                             value="no_video"
                         )
                     ], width=6)
@@ -134,13 +138,7 @@ times_layout = dbc.Row([
                         dbc.Label("Platform"),
                         dcc.Dropdown(
                             id="times-platform-dropdown",
-                            options=[
-                                {"label": "LinkedIn", "value": "linkedin"},
-                                {"label": "Instagram", "value": "instagram"},
-                                {"label": "Twitter", "value": "twitter"},
-                                {"label": "Substack", "value": "substack"},
-                                {"label": "Threads", "value": "threads"}
-                            ],
+                            options=PLATFORM_OPTIONS,
                             value="linkedin"
                         )
                     ], width=6),
@@ -148,11 +146,7 @@ times_layout = dbc.Row([
                         dbc.Label("Content Type"),
                         dcc.Dropdown(
                             id="times-content-type-dropdown",
-                            options=[
-                                {"label": "All", "value": None},
-                                {"label": "No Video", "value": "no_video"},
-                                {"label": "Video", "value": "video"}
-                            ],
+                            options=[{"label": "All", "value": None}] + CONTENT_TYPE_OPTIONS,
                             value=None
                         )
                     ], width=6)
@@ -175,13 +169,7 @@ trends_layout = dbc.Row([
                         dbc.Label("Platform"),
                         dcc.Dropdown(
                             id="trends-platform-dropdown",
-                            options=[
-                                {"label": "LinkedIn", "value": "linkedin"},
-                                {"label": "Instagram", "value": "instagram"},
-                                {"label": "Twitter", "value": "twitter"},
-                                {"label": "Substack", "value": "substack"},
-                                {"label": "Threads", "value": "threads"}
-                            ],
+                            options=PLATFORM_OPTIONS,
                             value="linkedin"
                         )
                     ], width=6),

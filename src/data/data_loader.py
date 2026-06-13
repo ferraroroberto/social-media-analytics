@@ -6,18 +6,20 @@ from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timedelta
 import logging
 from .database import SupabaseClient
+from ..constants import PLATFORMS, CONTENT_TYPES
+from ..features.feature_engineering import add_cross_platform_engagement_features
 
 logger = logging.getLogger(__name__)
 
 
 class DataLoader:
     """Data loader for content performance prediction."""
-    
+
     def __init__(self, supabase_client: Optional[SupabaseClient] = None):
         """Initialize data loader."""
         self.supabase_client = supabase_client or SupabaseClient()
-        self.platforms = ['linkedin', 'instagram', 'twitter', 'substack', 'threads']
-        self.content_types = ['no_video', 'video']
+        self.platforms = list(PLATFORMS)
+        self.content_types = list(CONTENT_TYPES)
         
     def load_consolidated_data(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
@@ -191,29 +193,14 @@ class DataLoader:
             Cross-platform dataset
         """
         df = posts_df.merge(profile_df, on='date', how='left', suffixes=('', '_profile'))
-        
-        # Create cross-platform features
-        for content_type in self.content_types:
-            engagement_cols = [f'engagement_{platform}_{content_type}' for platform in self.platforms]
-            available_cols = [col for col in engagement_cols if col in df.columns]
-            
-            if available_cols:
-                df[f'total_engagement_{content_type}'] = df[available_cols].sum(axis=1)
-                df[f'avg_engagement_{content_type}'] = df[available_cols].mean(axis=1)
-                df[f'max_engagement_{content_type}'] = df[available_cols].max(axis=1)
-                df[f'engagement_std_{content_type}'] = df[available_cols].std(axis=1)
-        
-        # Platform comparison features
-        for platform in self.platforms:
-            for content_type in self.content_types:
-                engagement_col = f'engagement_{platform}_{content_type}'
-                if engagement_col in df.columns:
-                    total_engagement_col = f'total_engagement_{content_type}'
-                    if total_engagement_col in df.columns:
-                        df[f'{platform}_share_{content_type}'] = (
-                            df[engagement_col] / df[total_engagement_col].replace(0, 1)
-                        )
-        
+
+        # The cross-platform aggregation math (total/avg/max/std + per-platform
+        # share) lives in exactly one place — the shared helper in
+        # feature_engineering — so the two entry points cannot drift.
+        df = add_cross_platform_engagement_features(
+            df, platforms=self.platforms, content_types=self.content_types
+        )
+
         logger.info(f"Created cross-platform dataset with {len(df)} records")
         return df
     

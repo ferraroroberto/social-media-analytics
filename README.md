@@ -34,6 +34,7 @@ content-performance-predictor/
 │   │   └── prediction_api.py  # REST API
 │   ├── utils/                 # Utilities
 │   │   └── config.py          # Configuration management
+│   ├── constants.py           # Canonical platform / content-type vocabulary
 │   └── cli.py                 # Command-line interface
 ├── dash_app/                  # Dashboard app (Dash)
 │   └── app.py                 # Dash application

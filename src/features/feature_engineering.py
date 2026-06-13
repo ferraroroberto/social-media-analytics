@@ -10,8 +10,60 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import re
 import nltk
 from textblob import TextBlob
+from ..constants import PLATFORMS, CONTENT_TYPES
 
 logger = logging.getLogger(__name__)
+
+
+def add_cross_platform_engagement_features(
+    df: pd.DataFrame,
+    platforms: Optional[List[str]] = None,
+    content_types: Optional[List[str]] = None,
+) -> pd.DataFrame:
+    """Add cross-platform engagement aggregations to ``df`` in place-safe form.
+
+    Computes, per content type, the ``total_/avg_/max_/engagement_std_`` columns
+    across platforms and the per-platform ``{platform}_share_{content_type}``
+    ratio. This is the single implementation of that math; both
+    ``FeatureEngineer.create_cross_platform_features`` and
+    ``DataLoader.create_cross_platform_dataset`` delegate here so the two paths
+    cannot diverge.
+
+    Args:
+        df: Input DataFrame containing ``engagement_{platform}_{content_type}``
+            columns.
+        platforms: Platforms to aggregate over (defaults to ``PLATFORMS``).
+        content_types: Content types to aggregate over (defaults to
+            ``CONTENT_TYPES``).
+
+    Returns:
+        A new DataFrame with the cross-platform engagement columns added.
+    """
+    df = df.copy()
+    platforms = platforms if platforms is not None else PLATFORMS
+    content_types = content_types if content_types is not None else CONTENT_TYPES
+
+    for content_type in content_types:
+        engagement_cols = [f'engagement_{platform}_{content_type}' for platform in platforms]
+        available_cols = [col for col in engagement_cols if col in df.columns]
+
+        if available_cols:
+            df[f'total_engagement_{content_type}'] = df[available_cols].sum(axis=1)
+            df[f'avg_engagement_{content_type}'] = df[available_cols].mean(axis=1)
+            df[f'max_engagement_{content_type}'] = df[available_cols].max(axis=1)
+            df[f'engagement_std_{content_type}'] = df[available_cols].std(axis=1)
+
+            # Platform share of total engagement
+            for platform in platforms:
+                col = f'engagement_{platform}_{content_type}'
+                if col in df.columns:
+                    # Handle division by zero and missing values
+                    df[f'{platform}_share_{content_type}'] = (
+                        df[col] / df[f'total_engagement_{content_type}'].replace(0, 1)
+                    )
+                    df[f'{platform}_share_{content_type}'] = df[f'{platform}_share_{content_type}'].fillna(0)
+
+    return df
 
 
 class FeatureEngineer:
@@ -127,21 +179,21 @@ class FeatureEngineer:
         df = df.copy()
         
         if platforms is None:
-            platforms = ['linkedin', 'instagram', 'twitter', 'substack', 'threads']
-        
+            platforms = PLATFORMS
+
         for platform in platforms:
             # Engagement rate features
             engagement_cols = [col for col in df.columns if col.startswith(f'engagement_{platform}')]
             follower_col = f'num_followers_{platform}'
-            
+
             if engagement_cols and follower_col in df.columns:
                 for col in engagement_cols:
                     # Handle division by zero and missing values
                     df[f'{col}_rate'] = df[col] / df[follower_col].replace(0, 1)
                     df[f'{col}_rate'] = df[f'{col}_rate'].fillna(0)
-            
+
             # Engagement ratio features
-            for content_type in ['no_video', 'video']:
+            for content_type in CONTENT_TYPES:
                 likes_col = f'num_likes_{platform}_{content_type}'
                 comments_col = f'num_comments_{platform}_{content_type}'
                 shares_col = f'num_reshares_{platform}_{content_type}'
@@ -173,34 +225,12 @@ class FeatureEngineer:
         Returns:
             DataFrame with cross-platform features
         """
-        df = df.copy()
-        
-        platforms = ['linkedin', 'instagram', 'twitter', 'substack', 'threads']
-        content_types = ['no_video', 'video']
-        
-        for content_type in content_types:
-            # Total engagement across platforms
-            engagement_cols = [f'engagement_{platform}_{content_type}' for platform in platforms]
-            available_cols = [col for col in engagement_cols if col in df.columns]
-            
-            if available_cols:
-                df[f'total_engagement_{content_type}'] = df[available_cols].sum(axis=1)
-                df[f'avg_engagement_{content_type}'] = df[available_cols].mean(axis=1)
-                df[f'max_engagement_{content_type}'] = df[available_cols].max(axis=1)
-                df[f'engagement_std_{content_type}'] = df[available_cols].std(axis=1)
-                
-                # Platform share
-                for platform in platforms:
-                    col = f'engagement_{platform}_{content_type}'
-                    if col in df.columns:
-                        # Handle division by zero and missing values
-                        df[f'{platform}_share_{content_type}'] = (
-                            df[col] / df[f'total_engagement_{content_type}'].replace(0, 1)
-                        )
-                        df[f'{platform}_share_{content_type}'] = df[f'{platform}_share_{content_type}'].fillna(0)
-        
+        # Engagement aggregations (total/avg/max/std + share) come from the one
+        # shared implementation so this path and DataLoader cannot drift.
+        df = add_cross_platform_engagement_features(df)
+
         # Cross-platform follower features
-        follower_cols = [f'num_followers_{platform}' for platform in platforms]
+        follower_cols = [f'num_followers_{platform}' for platform in PLATFORMS]
         available_follower_cols = [col for col in follower_cols if col in df.columns]
         
         if available_follower_cols:
@@ -262,11 +292,9 @@ class FeatureEngineer:
             DataFrame with interaction features
         """
         df = df.copy()
-        
-        platforms = ['linkedin', 'instagram', 'twitter', 'substack', 'threads']
-        
-        for platform in platforms:
-            for content_type in ['no_video', 'video']:
+
+        for platform in PLATFORMS:
+            for content_type in CONTENT_TYPES:
                 likes_col = f'num_likes_{platform}_{content_type}'
                 comments_col = f'num_comments_{platform}_{content_type}'
                 shares_col = f'num_reshares_{platform}_{content_type}'
