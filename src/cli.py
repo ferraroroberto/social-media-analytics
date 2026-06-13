@@ -11,6 +11,7 @@ from .data.data_loader import DataLoader
 from .features.feature_engineering import FeatureEngineer
 from .models.prediction_models import create_model
 from .utils.config import get_config
+from .constants import PLATFORMS, CONTENT_TYPES
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -183,8 +184,7 @@ def analyze_data(args):
         logger.info(f"  Date range: {posts_df['date'].min()} to {posts_df['date'].max()}")
         
         # Platform analysis
-        platforms = ['linkedin', 'instagram', 'twitter', 'substack', 'threads']
-        for platform in platforms:
+        for platform in PLATFORMS:
             engagement_cols = [col for col in posts_df.columns if f'engagement_{platform}' in col]
             if engagement_cols:
                 total_engagement = posts_df[engagement_cols].sum().sum()
@@ -220,9 +220,9 @@ Examples:
     
     # Train command
     train_parser = subparsers.add_parser('train', help='Train a model')
-    train_parser.add_argument('--platform', choices=['linkedin', 'instagram', 'twitter', 'substack', 'threads'],
+    train_parser.add_argument('--platform', choices=PLATFORMS,
                              help='Platform to train for')
-    train_parser.add_argument('--content-type', choices=['no_video', 'video'], default='no_video',
+    train_parser.add_argument('--content-type', choices=CONTENT_TYPES, default='no_video',
                              help='Content type')
     train_parser.add_argument('--model-type', 
                              choices=['random_forest', 'xgboost', 'lightgbm', 'catboost', 'linear_regression'],
@@ -232,9 +232,9 @@ Examples:
     
     # Predict command
     predict_parser = subparsers.add_parser('predict', help='Make predictions')
-    predict_parser.add_argument('--platform', choices=['linkedin', 'instagram', 'twitter', 'substack', 'threads'],
+    predict_parser.add_argument('--platform', choices=PLATFORMS,
                                help='Platform to predict for')
-    predict_parser.add_argument('--content-type', choices=['no_video', 'video'], default='no_video',
+    predict_parser.add_argument('--content-type', choices=CONTENT_TYPES, default='no_video',
                                help='Content type')
     predict_parser.add_argument('--model-type', 
                                choices=['random_forest', 'xgboost', 'lightgbm', 'catboost', 'linear_regression'],
