@@ -215,7 +215,6 @@ Access the dashboard at `http://localhost:8050` to:
 - Analyze captions
 - View best posting times
 - Explore platform trends
-- Compare cross-platform performance
 
 ### CLI Usage
 
