@@ -165,7 +165,7 @@ class FeatureEngineer:
         logger.info(f"Created lag features for {len(target_cols)} columns with lags {lags}")
         return df
     
-    def create_engagement_features(self, df: pd.DataFrame, platforms: List[str] = None) -> pd.DataFrame:
+    def create_engagement_features(self, df: pd.DataFrame, platforms: Optional[List[str]] = None) -> pd.DataFrame:
         """
         Create engagement-related features.
         

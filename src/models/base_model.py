@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class BaseModel(ABC, BaseEstimator):
     """Base class for all content performance prediction models."""
     
-    def __init__(self, model_name: str, target_column: str, feature_columns: List[str] = None):
+    def __init__(self, model_name: str, target_column: str, feature_columns: Optional[List[str]] = None):
         """
         Initialize base model.
         

@@ -28,7 +28,7 @@ lgb.register_logger(SilentLogger())
 class RandomForestModel(BaseModel):
     """Random Forest model for content performance prediction."""
     
-    def __init__(self, target_column: str, feature_columns: List[str] = None, **kwargs):
+    def __init__(self, target_column: str, feature_columns: Optional[List[str]] = None, **kwargs):
         """
         Initialize Random Forest model.
         
@@ -55,7 +55,7 @@ class RandomForestModel(BaseModel):
 class XGBoostModel(BaseModel):
     """XGBoost model for content performance prediction."""
     
-    def __init__(self, target_column: str, feature_columns: List[str] = None, **kwargs):
+    def __init__(self, target_column: str, feature_columns: Optional[List[str]] = None, **kwargs):
         """
         Initialize XGBoost model.
         
@@ -83,7 +83,7 @@ class XGBoostModel(BaseModel):
 class LightGBMModel(BaseModel):
     """LightGBM model for content performance prediction."""
     
-    def __init__(self, target_column: str, feature_columns: List[str] = None, **kwargs):
+    def __init__(self, target_column: str, feature_columns: Optional[List[str]] = None, **kwargs):
         """
         Initialize LightGBM model.
         
@@ -111,7 +111,7 @@ class LightGBMModel(BaseModel):
 class CatBoostModel(BaseModel):
     """CatBoost model for content performance prediction."""
     
-    def __init__(self, target_column: str, feature_columns: List[str] = None, **kwargs):
+    def __init__(self, target_column: str, feature_columns: Optional[List[str]] = None, **kwargs):
         """
         Initialize CatBoost model.
         
@@ -139,7 +139,7 @@ class CatBoostModel(BaseModel):
 class LinearRegressionModel(BaseModel):
     """Linear Regression model for content performance prediction."""
     
-    def __init__(self, target_column: str, feature_columns: List[str] = None, **kwargs):
+    def __init__(self, target_column: str, feature_columns: Optional[List[str]] = None, **kwargs):
         """
         Initialize Linear Regression model.
         
@@ -163,7 +163,7 @@ class LinearRegressionModel(BaseModel):
 class RidgeModel(BaseModel):
     """Ridge Regression model for content performance prediction."""
     
-    def __init__(self, target_column: str, feature_columns: List[str] = None, **kwargs):
+    def __init__(self, target_column: str, feature_columns: Optional[List[str]] = None, **kwargs):
         """
         Initialize Ridge Regression model.
         
@@ -188,7 +188,7 @@ class RidgeModel(BaseModel):
 class SVRModel(BaseModel):
     """Support Vector Regression model for content performance prediction."""
     
-    def __init__(self, target_column: str, feature_columns: List[str] = None, **kwargs):
+    def __init__(self, target_column: str, feature_columns: Optional[List[str]] = None, **kwargs):
         """
         Initialize SVR model.
         
@@ -214,7 +214,7 @@ class SVRModel(BaseModel):
 class MLPModel(BaseModel):
     """Multi-layer Perceptron model for content performance prediction."""
     
-    def __init__(self, target_column: str, feature_columns: List[str] = None, **kwargs):
+    def __init__(self, target_column: str, feature_columns: Optional[List[str]] = None, **kwargs):
         """
         Initialize MLP model.
         
@@ -244,8 +244,8 @@ class MLPModel(BaseModel):
 class EnsembleModel(BaseModel):
     """Ensemble model combining multiple base models."""
     
-    def __init__(self, target_column: str, feature_columns: List[str] = None, 
-                 base_models: List[BaseModel] = None, weights: List[float] = None):
+    def __init__(self, target_column: str, feature_columns: Optional[List[str]] = None,
+                 base_models: Optional[List[BaseModel]] = None, weights: Optional[List[float]] = None):
         """
         Initialize Ensemble model.
         
@@ -356,7 +356,7 @@ class EnsembleModel(BaseModel):
         return all_metrics
 
 
-def create_model(model_type: str, target_column: str, feature_columns: List[str] = None, **kwargs) -> BaseModel:
+def create_model(model_type: str, target_column: str, feature_columns: Optional[List[str]] = None, **kwargs) -> BaseModel:
     """
     Factory function to create models.
     

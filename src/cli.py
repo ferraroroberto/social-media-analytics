@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(verbose: bool = False):
+def setup_logging(verbose: bool = False) -> None:
     """Set up logging configuration."""
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
@@ -27,7 +27,7 @@ def setup_logging(verbose: bool = False):
     )
 
 
-def train_model(args):
+def train_model(args: argparse.Namespace) -> int:
     """Train a model."""
     try:
         # Load configuration
@@ -122,7 +122,7 @@ def train_model(args):
         return 1
 
 
-def predict(args):
+def predict(args: argparse.Namespace) -> int:
     """Make predictions."""
     try:
         # Load configuration
@@ -159,7 +159,7 @@ def predict(args):
         return 1
 
 
-def analyze_data(args):
+def analyze_data(args: argparse.Namespace) -> int:
     """Analyze data."""
     try:
         # Initialize components
@@ -197,7 +197,7 @@ def analyze_data(args):
         return 1
 
 
-def main():
+def main() -> int:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
         description="Content Performance Predictor CLI",
