@@ -62,22 +62,15 @@ content-performance-predictor/
 
 ### Data & Storage
 - **Database:** Supabase (PostgreSQL)
-- **Data Processing:** pandas, polars, numpy
-- **File Storage:** DuckDB, Parquet
+- **Data Processing:** pandas, numpy
 
 ### Machine Learning
 - **Models:** scikit-learn, XGBoost, LightGBM, CatBoost
-- **Deep Learning:** PyTorch, Transformers
-- **NLP:** spaCy, TextBlob, sentence-transformers
-- **Feature Engineering:** feature-engine
-- **Time Series:** Prophet, statsmodels
-
-### Experiment Tracking & Optimization
+- **NLP:** TextBlob
 - **Experiment Tracking:** MLflow
-- **Hyperparameter Tuning:** Optuna
 
 ### Visualization & Dashboard
-- **Visualization:** plotly, seaborn, matplotlib
+- **Visualization:** plotly
 - **Dashboard:** Dash, dash-bootstrap-components
 
 ### API & Web Framework
@@ -85,11 +78,9 @@ content-performance-predictor/
 - **Validation:** Pydantic
 - **HTTP Client:** requests
 
-### DevOps & Development
-- **Containerization:** Docker, Docker Compose
+### Development
 - **Code Quality:** black, flake8, pre-commit
 - **Testing:** pytest
-- **Documentation:** MkDocs, mkdocs-material
 
 ## 🚀 Quick Start
 
@@ -341,7 +332,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Roberto Ferraro**
 - LinkedIn: [https://www.linkedin.com/in/ferraroroberto/](https://www.linkedin.com/in/ferraroroberto/)
-- Email: roberto.ferraro@example.com
+- Email: roberto.ferraro@gmail.com
 
 ## 🙏 Acknowledgments
 
@@ -353,7 +344,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For support and questions:
 - Open an issue on GitHub
-- Contact: roberto.ferraro@example.com
+- Contact: roberto.ferraro@gmail.com
 - Documentation: [docs/](docs/)
 
 ---

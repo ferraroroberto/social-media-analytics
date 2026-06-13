@@ -18,15 +18,13 @@ This document is your comprehensive guide to learning data science by building a
 
 ## 📋 Quick Reference - What We've Built
 
-| Component | Status | Purpose | Test Script |
-|-----------|--------|---------|-------------|
+| Component | Status | Purpose | Location |
+|-----------|--------|---------|----------|
 | **Data Layer** | ✅ Complete | Connect to Supabase database | `tools/supabase_connection_check.py` |
 | **Feature Engineering** | ✅ Complete | Transform raw data into features | `tests/demo_feature_engineering.py` |
-| **Machine Learning** | 🔄 Next Step | Train and evaluate models | Coming in Step 3 |
-| **API Layer** | 🔄 Coming Soon | Make predictions available | Coming in Step 4 |
-| **Dashboard** | 🔄 Coming Soon | Visualize results | Coming in Step 5 |
-
-**Current Focus:** You're ready for **Step 3: Machine Learning Models** after completing feature engineering testing.
+| **Machine Learning** | ✅ Complete | Train and evaluate models | `src/models/` |
+| **API Layer** | ✅ Complete | Make predictions available | `src/api/prediction_api.py` |
+| **Dashboard** | ✅ Complete | Visualize results | `dash_app/app.py` |
 
 ---
 
@@ -517,8 +515,8 @@ def fit(self, X: pd.DataFrame, y: pd.Series) -> 'BaseModel':
     # X = features (day of week, month, lag features, etc.)
     # y = target (number of likes, comments, etc.)
     
-    # Clean data (remove rows with missing values)
-    mask = ~(X.isnull().any(axis=1) | y.isnull())
+    # Clean data (remove rows where the target is missing)
+    mask = ~y.isnull()
     X_clean = X[mask]
     y_clean = y[mask]
     
@@ -800,6 +798,7 @@ print(f'Created {len(posts_with_features.columns)} features')
 # Train a model
 python -c "
 from src.models.prediction_models import create_model
+from src.models.model_pipeline import prepare_modeling_data
 from src.features.feature_engineering import FeatureEngineer
 from src.data.database import SupabaseClient
 
@@ -810,9 +809,12 @@ fe = FeatureEngineer()
 posts_with_features = fe.create_temporal_features(posts)
 posts_with_features = fe.create_lag_features(posts_with_features, ['num_likes_linkedin_no_video'])
 
+# Split into X and y (drops target-derived columns to prevent data leakage)
+X, y, feature_cols = prepare_modeling_data(posts_with_features, 'num_likes_linkedin_no_video')
+
 # Train model
 model = create_model('random_forest', 'num_likes_linkedin_no_video')
-model.fit(posts_with_features, posts_with_features['num_likes_linkedin_no_video'])
+model.fit(X, y)
 
 print('Model trained successfully!')
 "
