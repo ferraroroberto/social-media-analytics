@@ -120,7 +120,7 @@ def apply_feature_engineering_silently(df, fe):
             c for c in df.select_dtypes(include=[np.number]).columns if c not in exclude
         ]
         if numeric_cols:
-            df = fe.scale_features(df, numeric_cols, scaler_type="standard")
+            df = fe.scale_features(df, numeric_cols)
             print(f"   ✅ scaled {len(numeric_cols)} numeric features")
     except Exception as exc:
         print(f"   ⚠️  scaling: {exc}")

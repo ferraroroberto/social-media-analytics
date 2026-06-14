@@ -65,7 +65,7 @@ features:
     window_sizes: [7, 14, 30]
   
   scaling:
-    method: standard  # standard, minmax
+    method: standard  # z-score (StandardScaler)
   
   importance_threshold: 0.01
 

@@ -5,7 +5,7 @@ import numpy as np
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timedelta
 import logging
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 import re
 from textblob import TextBlob
 from ..constants import PLATFORMS, CONTENT_TYPES
@@ -356,26 +356,25 @@ class FeatureEngineer:
         logger.info("Created trend features")
         return df
     
-    def scale_features(self, df: pd.DataFrame, feature_cols: List[str], scaler_type: str = 'standard') -> pd.DataFrame:
+    def scale_features(self, df: pd.DataFrame, feature_cols: List[str]) -> pd.DataFrame:
         """
-        Scale numerical features.
-        
+        Scale numerical features using standard (z-score) scaling.
+
         Args:
             df: Input DataFrame
             feature_cols: List of feature columns to scale
-            scaler_type: Type of scaler ('standard' or 'minmax')
-            
+
         Returns:
             DataFrame with scaled features
         """
         df = df.copy()
-        
+
         available_cols = [col for col in feature_cols if col in df.columns]
-        
+
         if not available_cols:
             logger.warning("No feature columns found for scaling")
             return df
-        
+
         # Handle missing values before scaling
         for col in available_cols:
             if df[col].isnull().any():
@@ -383,26 +382,21 @@ class FeatureEngineer:
                 if pd.isna(median_val):
                     median_val = 0
                 df[col] = df[col].fillna(median_val)
-        
-        if scaler_type == 'standard':
-            scaler = StandardScaler()
-        elif scaler_type == 'minmax':
-            scaler = MinMaxScaler()
-        else:
-            raise ValueError("scaler_type must be 'standard' or 'minmax'")
-        
+
+        scaler = StandardScaler()
+
         # Scale features
         df_scaled = scaler.fit_transform(df[available_cols])
         df_scaled = pd.DataFrame(df_scaled, columns=available_cols, index=df.index)
-        
+
         # Replace original columns with scaled ones
         for col in available_cols:
             df[f'{col}_scaled'] = df_scaled[col]
-        
+
         # Store scaler for later use
-        self.scalers[scaler_type] = scaler
-        
-        logger.info(f"Scaled {len(available_cols)} features using {scaler_type} scaler")
+        self.scalers['standard'] = scaler
+
+        logger.info(f"Scaled {len(available_cols)} features using standard scaler")
         return df
     
     def _is_holiday(self, dates: pd.Series) -> pd.Series:
