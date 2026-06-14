@@ -211,27 +211,36 @@ async def predict_engagement(request: PredictionRequest):
         prediction_data = posts_df[posts_df['date'] == prediction_date].copy()
         
         if prediction_data.empty:
-            # Create synthetic data for prediction
-            prediction_data = pd.DataFrame([{
-                'date': prediction_date,
-                'day_of_week': prediction_date.dayofweek,
-                'month': prediction_date.month,
-                'quarter': prediction_date.quarter,
-                'year': prediction_date.year,
-                'is_weekend': 1 if prediction_date.dayofweek in [5, 6] else 0
-            }])
+            # Never fabricate a synthetic 6-column row: every model was trained
+            # on the full feature set (model.feature_columns), so a partial row
+            # would KeyError in BaseModel.predict or feed the model the wrong
+            # feature shape. Surface the missing data instead of papering over it.
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"No data available for {request.date} to build a prediction "
+                    "feature row. Request a date present in the recent posts history."
+                ),
+            )
         
         # Add additional features if provided
         if request.features:
             for key, value in request.features.items():
                 prediction_data[key] = value
         
-        # Select appropriate model
+        # Select the model trained for this platform/content type. Never silently
+        # substitute an unrelated model — that returns wrong-looking-right output
+        # under the caller's requested key, which is worse than failing.
         model_key = f"{request.platform}_{request.content_type}"
         if model_key not in models:
-            # Use a default model
-            model_key = list(models.keys())[0]
-        
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"No trained model for {request.platform}/{request.content_type}. "
+                    f"Available models: {sorted(models.keys())}"
+                ),
+            )
+
         model = models[model_key]
         
         # Make prediction
@@ -247,6 +256,8 @@ async def predict_engagement(request: PredictionRequest):
             features_used=model.feature_columns or []
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in prediction: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -309,6 +320,8 @@ async def analyze_caption(request: CaptionAnalysisRequest):
             recommendations=recommendations
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in caption analysis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -369,6 +382,8 @@ async def get_best_posting_times(request: BestTimeRequest):
             analysis_period=f"Last {request.days_ahead + 30} days"
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in best times analysis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -436,6 +451,8 @@ async def get_platform_trends(request: PlatformTrendRequest):
             recommendations=recommendations
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in platform trends analysis: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -156,7 +156,7 @@ def demonstrate_feature_scaling(df, fe):
     if not numerical_cols:
         numerical_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c != "date"][:4]
     print(f"📊 Scaling: {numerical_cols}")
-    result = fe.scale_features(df, numerical_cols, scaler_type="standard")
+    result = fe.scale_features(df, numerical_cols)
     scaled_cols = [c for c in result.columns if c.endswith("_scaled")]
     print(f"✨ Added {len(scaled_cols)} scaled features (mean≈0, std≈1)\n")
     return result
