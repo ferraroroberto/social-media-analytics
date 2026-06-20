@@ -32,27 +32,6 @@ logger = logging.getLogger(__name__)
 _LEAKAGE_PATTERNS = ("_rolling_", "_lag_", "_scaled", "_rate", "_trend", "_diff")
 
 
-def remove_data_leakage_features(feature_cols: List[str], target_col: str) -> List[str]:
-    """Drop features derived from the target variable (data leakage).
-
-    Args:
-        feature_cols: Candidate feature column names.
-        target_col: The target column name.
-
-    Returns:
-        ``feature_cols`` with target-derived columns removed.
-    """
-    target_base = target_col.replace("_scaled", "")
-    leakage = [
-        col
-        for col in feature_cols
-        if target_base in col
-        and col != target_col
-        and any(pattern in col for pattern in _LEAKAGE_PATTERNS)
-    ]
-    return [col for col in feature_cols if col not in leakage]
-
-
 def find_leakage_features(feature_cols: List[str], target_col: str) -> List[str]:
     """Return the target-derived (leaking) features without removing them."""
     target_base = target_col.replace("_scaled", "")
@@ -63,6 +42,20 @@ def find_leakage_features(feature_cols: List[str], target_col: str) -> List[str]
         and col != target_col
         and any(pattern in col for pattern in _LEAKAGE_PATTERNS)
     ]
+
+
+def remove_data_leakage_features(feature_cols: List[str], target_col: str) -> List[str]:
+    """Drop features derived from the target variable (data leakage).
+
+    Args:
+        feature_cols: Candidate feature column names.
+        target_col: The target column name.
+
+    Returns:
+        ``feature_cols`` with target-derived columns removed.
+    """
+    leakage = set(find_leakage_features(feature_cols, target_col))
+    return [col for col in feature_cols if col not in leakage]
 
 
 def resolve_target_column(df: pd.DataFrame, target_col: str) -> str:
