@@ -68,7 +68,7 @@ content-performance-predictor/
 ### Machine Learning
 - **Models:** scikit-learn, XGBoost, LightGBM, CatBoost
 - **NLP:** TextBlob
-- **Experiment Tracking:** MLflow
+- **Experiment Tracking:** MLflow *(scaffolded, not yet wired — `log_to_mlflow` is defined but never called)*
 
 ### Visualization & Dashboard
 - **Visualization:** plotly
@@ -150,8 +150,8 @@ make run-api
 # Run dashboard (in another terminal)
 make run-dashboard
 
-# Run MLflow tracking server (in another terminal)
-make run-mlflow
+# Run MLflow tracking server (scaffolded, not yet wired — server starts but no code logs to it yet)
+# make run-mlflow
 ```
 
 #### Option B: Using Docker
@@ -170,8 +170,8 @@ uvicorn src.api.prediction_api:app --host 0.0.0.0 --port 8000 --reload
 # Run dashboard
 python dash_app/app.py
 
-# Run MLflow server
-mlflow server --host 0.0.0.0 --port 5000
+# Run MLflow server (scaffolded, not yet wired — server starts but no code logs to it yet)
+# mlflow server --host 0.0.0.0 --port 5000
 ```
 
 ## 📊 Usage
@@ -187,6 +187,7 @@ The API provides the following endpoints:
 - `POST /best-times` - Get best posting times
 - `POST /platform-trends` - Get platform trends
 - `GET /models` - List available models
+- `GET /models/{model_name}` - Get model detail and summary
 
 #### Example API Usage
 

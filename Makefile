@@ -70,7 +70,7 @@ docker-run-detached:
 docker-stop:
 	docker-compose down
 
-# Run MLflow server
+# Run MLflow server (scaffolded, not yet wired — server starts but no code logs to it yet)
 run-mlflow:
 	mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow/mlflow.db --default-artifact-root file:/mlflow
 
@@ -87,4 +87,4 @@ dev-setup: init
 	@echo "Development environment setup complete!"
 	@echo "Run 'make run-api' to start the API server"
 	@echo "Run 'make run-dashboard' to start the dashboard"
-	@echo "Run 'make run-mlflow' to start MLflow tracking server"
+	@echo "Run 'make run-mlflow' to start MLflow tracking server (scaffolded, not yet wired)"
