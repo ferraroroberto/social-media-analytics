@@ -9,8 +9,6 @@ import os
 from abc import ABC, abstractmethod
 from sklearn.base import BaseEstimator
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import mlflow
-import mlflow.sklearn
 
 logger = logging.getLogger(__name__)
 
@@ -274,48 +272,7 @@ class BaseModel(ABC, BaseEstimator):
 
         logger.info(f"Model loaded from {filepath}")
         return instance
-    
-    def log_to_mlflow(self, experiment_name: str = None) -> None:
-        """
-        Log model and metrics to MLflow.
-        
-        Args:
-            experiment_name: MLflow experiment name
-        """
-        if not self.is_fitted:
-            logger.warning("Model not fitted, skipping MLflow logging")
-            return
-        
-        try:
-            if experiment_name:
-                mlflow.set_experiment(experiment_name)
-            
-            with mlflow.start_run():
-                # Log model
-                mlflow.sklearn.log_model(self.model, self.model_name)
-                
-                # Log parameters
-                if hasattr(self.model, 'get_params'):
-                    mlflow.log_params(self.model.get_params())
-                
-                # Log metrics
-                if self.metrics:
-                    mlflow.log_metrics(self.metrics)
-                
-                # Log feature importance
-                if self.feature_importance:
-                    importance_df = pd.DataFrame(
-                        list(self.feature_importance.items()),
-                        columns=['feature', 'importance']
-                    ).sort_values('importance', ascending=False)
-                    
-                    mlflow.log_artifact(importance_df.to_csv(index=False), "feature_importance.csv")
-                
-                logger.info(f"Model logged to MLflow experiment: {experiment_name}")
-                
-        except Exception as e:
-            logger.error(f"Error logging to MLflow: {e}")
-    
+
     def get_model_summary(self) -> Dict[str, Any]:
         """
         Get a summary of the model.

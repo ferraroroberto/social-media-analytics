@@ -82,11 +82,6 @@ dashboard:
   port: ${DASHBOARD_PORT:-8050}
   debug: ${DASHBOARD_DEBUG:-true}
 
-# MLflow Configuration
-mlflow:
-  tracking_uri: ${MLFLOW_TRACKING_URI:-http://localhost:5000}
-  experiment_name: ${MLFLOW_EXPERIMENT_NAME:-content-performance-predictor}
-
 # Logging Configuration
 logging:
   level: ${LOG_LEVEL:-INFO}

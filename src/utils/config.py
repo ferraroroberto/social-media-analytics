@@ -93,33 +93,9 @@ class Config:
 
         return value
 
-    def get_supabase_config(self) -> Dict[str, str]:
-        """Get Supabase configuration."""
-        return self.get("data.supabase", {})
-
-    def get_api_config(self) -> Dict[str, Any]:
-        """Get API configuration."""
-        return self.get("api", {})
-
-    def get_dashboard_config(self) -> Dict[str, Any]:
-        """Get dashboard configuration."""
-        return self.get("dashboard", {})
-
-    def get_mlflow_config(self) -> Dict[str, str]:
-        """Get MLflow configuration."""
-        return self.get("mlflow", {})
-
     def get_paths(self) -> Dict[str, str]:
         """Get paths configuration."""
         return self.get("paths", {})
-
-    def get_model_config(self) -> Dict[str, Any]:
-        """Get model configuration."""
-        return self.get("models", {})
-
-    def get_feature_config(self) -> Dict[str, Any]:
-        """Get feature engineering configuration."""
-        return self.get("features", {})
 
 
 # Global configuration instance

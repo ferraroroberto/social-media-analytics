@@ -70,8 +70,3 @@ class SupabaseClient:
             DataFrame with profile data
         """
         return self._get_table_data("profile", start_date, end_date)
-    
-
-def get_supabase_client() -> SupabaseClient:
-    """Get a Supabase client instance."""
-    return SupabaseClient()
