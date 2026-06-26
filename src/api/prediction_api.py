@@ -48,6 +48,14 @@ class PredictionRequest(BaseModel):
     platform: str = Field(..., description="Platform (linkedin, instagram, twitter, substack, threads)")
     content_type: str = Field(..., description="Content type (no_video, video)")
     date: date = Field(..., description="Date for prediction")
+    model_type: str = Field(
+        default="xgboost",
+        description=(
+            "Model type to predict with (random_forest, xgboost, lightgbm, "
+            "catboost, linear_regression). Must match a trained model — train "
+            "saves under {platform}_{content_type}_{model_type}."
+        ),
+    )
     features: Optional[Dict[str, Any]] = Field(default=None, description="Additional features")
     
 class PredictionResponse(BaseModel):
@@ -228,15 +236,18 @@ async def predict_engagement(request: PredictionRequest):
             for key, value in request.features.items():
                 prediction_data[key] = value
         
-        # Select the model trained for this platform/content type. Never silently
+        # Select the model trained for this platform/content type/model type.
+        # The key must match exactly how the CLI `train` command saves models
+        # (src/cli.py): {platform}_{content_type}_{model_type}. Never silently
         # substitute an unrelated model — that returns wrong-looking-right output
         # under the caller's requested key, which is worse than failing.
-        model_key = f"{request.platform}_{request.content_type}"
+        model_key = f"{request.platform}_{request.content_type}_{request.model_type}"
         if model_key not in models:
             raise HTTPException(
                 status_code=404,
                 detail=(
-                    f"No trained model for {request.platform}/{request.content_type}. "
+                    f"No trained model for {request.platform}/{request.content_type}"
+                    f"/{request.model_type}. "
                     f"Available models: {sorted(models.keys())}"
                 ),
             )
