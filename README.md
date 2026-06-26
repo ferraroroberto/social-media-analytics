@@ -68,7 +68,7 @@ content-performance-predictor/
 ### Machine Learning
 - **Models:** scikit-learn, XGBoost, LightGBM, CatBoost
 - **NLP:** TextBlob
-- **Experiment Tracking:** MLflow *(scaffolded, not yet wired — `log_to_mlflow` is defined but never called)*
+- **Experiment Tracking:** MLflow *(scaffolded, not yet wired — server starts but no code logs to it yet)*
 
 ### Visualization & Dashboard
 - **Visualization:** plotly
