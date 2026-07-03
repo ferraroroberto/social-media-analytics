@@ -31,6 +31,10 @@ class SupabaseClient:
             response = self.client.table(table).select("*").execute()
             df = pd.DataFrame(response.data)
 
+            if df.empty:
+                logger.info(f"Loaded 0 {table} records")
+                return df
+
             if start_date or end_date:
                 df['date'] = pd.to_datetime(df['date'])
                 if start_date:
