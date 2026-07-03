@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from src.models.base_model import BaseModel
+from src.models.prediction_models import LinearRegressionModel
 
 
 class _RecordingEstimator:
@@ -109,3 +110,23 @@ def test_categories_survive_save_and_load(tmp_path):
     predict_one = pd.DataFrame({"content_type": ["video"], "num_followers": [1]})
     reloaded.predict(predict_one)
     assert _encoded_value(reloaded.model.seen_predict_X, "content_type", row=0) == fit_code_video
+
+
+def test_abstract_base_load_model_uses_saved_concrete_model_name(tmp_path):
+    train = pd.DataFrame({"feature": [1.0, 2.0, 3.0]})
+    y = pd.Series([2.0, 4.0, 6.0])
+
+    model = LinearRegressionModel(
+        target_column="target",
+        feature_columns=["feature"],
+    )
+    model.fit(train, y)
+
+    path = str(tmp_path / "linear.joblib")
+    model.save_model(path)
+
+    reloaded = BaseModel.load_model(path)
+
+    assert isinstance(reloaded, LinearRegressionModel)
+    assert reloaded.is_fitted
+    assert np.isclose(reloaded.predict(pd.DataFrame({"feature": [4.0]}))[0], 8.0)

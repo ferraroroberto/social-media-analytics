@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Tuple, Any, Union
 import logging
 import joblib
 import os
+import inspect
 from abc import ABC, abstractmethod
 from sklearn.base import BaseEstimator
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
@@ -254,12 +255,35 @@ class BaseModel(ABC, BaseEstimator):
         
         model_data = joblib.load(filepath)
         
-        # Create new instance
-        instance = cls(
-            model_name=model_data['model_name'],
-            target_column=model_data['target_column'],
-            feature_columns=model_data['feature_columns']
-        )
+        model_name = model_data['model_name']
+        target_column = model_data['target_column']
+        feature_columns = model_data['feature_columns']
+
+        # ``BaseModel`` is abstract, but the API startup path intentionally loads
+        # through this base class. Resolve the concrete class from the saved
+        # model_name when needed, while preserving subclass-specific calls used
+        # by tests and direct callers.
+        if cls is BaseModel:
+            from .prediction_models import create_model
+
+            instance = create_model(model_name, target_column, feature_columns)
+        else:
+            init_params = inspect.signature(cls.__init__).parameters
+            model_name_param = init_params.get("model_name")
+            if model_name_param and model_name_param.kind in (
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                inspect.Parameter.KEYWORD_ONLY,
+            ):
+                instance = cls(
+                    model_name=model_name,
+                    target_column=target_column,
+                    feature_columns=feature_columns,
+                )
+            else:
+                instance = cls(
+                    target_column=target_column,
+                    feature_columns=feature_columns,
+                )
         
         # Restore state
         instance.model = model_data['model']
