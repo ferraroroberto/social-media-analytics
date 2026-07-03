@@ -1,28 +1,25 @@
 # Supabase Data Structure Documentation
 
-This document provides a detailed overview of the data structure within the Supabase project. It is intended to be used as a reference for development and for a future Data Science project aimed at analyzing and predicting post performance.
+This document describes the data contract this repository actually depends on: the consolidated `posts` and `profile` tables that `src/data/database.py` reads from Supabase. It is intended to be used as a reference for development and for the Data Science work in this repo that analyzes and predicts post performance.
 
 ## 1. Data Flow Overview
 
-The data in this project follows a two-stage pipeline:
+**This repo is a consumer, not a producer, of the Supabase data.** It only reads two consolidated, analysis-ready tables — `posts` and `profile` — via `SupabaseClient.get_posts_data()` / `get_profile_data()` in `src/data/database.py`.
 
-1.  **Raw Data Ingestion**: Data is ingested from various sources and stored in "raw" tables.
-    *   **Notion**: A significant portion of the data is synced from various Notion databases. The `notion_supabase_sync.py` script handles this process, dynamically creating and updating tables in Supabase based on the Notion database structures.
-    *   **Social Media APIs**: Other scripts (presumably in the `social_client` directory) pull data directly from social media platforms (LinkedIn, Instagram, Twitter, etc.) and store it in platform-specific tables (e.g., `linkedin_posts`, `instagram_profile`).
-
-2.  **Data Consolidation**: SQL scripts (`posts_consolidator.sql` and `profile_aggregator.sql`) are run to process the raw data from the various platform-specific tables and create aggregated, analysis-ready tables: `posts` and `profile`.
+Those tables are populated by an **external pipeline that lives outside this repository** (raw ingestion from Notion and social-media APIs, followed by SQL consolidation into `posts`/`profile`). This repo does not track, run, or own that pipeline's code — there is no `notion_supabase_sync.py`, `social_client`, or consolidation SQL checked in here. Section 2.2 below documents the inferred *shape* of the upstream raw tables for context only; treat it as external reference material, not code owned by this project.
 
 ```
-[Notion DBs] ---> [notion_supabase_sync.py] ---> [notion_* tables] --\
-                                                                     |
-[Social APIs] --> [social_api_client.py] --> [platform_* tables] --+--> [SQL Scripts] --> [Consolidated Tables]
-                                                                     |                        (posts, profile)
-                                                                     /
+[External pipeline — not in this repo]
+[Notion DBs] --\
+                +--> [raw platform/notion tables] --> [SQL consolidation] --> [posts, profile]
+[Social APIs] -/                                                                    |
+                                                                                      v
+                                                                    [This repo reads posts/profile via Supabase]
 ```
 
 ## 2. Table Definitions
 
-The following sections describe the tables in the Supabase database.
+The following sections describe the tables in the Supabase database. Section 2.1 (`posts`/`profile`) is the data contract this repo owns and depends on. Section 2.2 is external/upstream reference material — those tables are not read by any code in this repo.
 
 ### 2.1. Consolidated Tables
 
@@ -67,13 +64,13 @@ This table consolidates daily follower counts from all social media platforms.
 
 ---
 
-### 2.2. Raw Data Tables
+### 2.2. Raw Data Tables *(external reference — not owned by this repo)*
 
-These tables contain the raw data ingested from various sources before consolidation.
+These tables hold the raw, pre-consolidation data. They are populated and consolidated by a pipeline that lives outside this repository; nothing here reads them directly, and their ingestion/consolidation code is not tracked in this repo. They are documented here only so a reader of the consolidated `posts`/`profile` schema understands where the values originate upstream.
 
 #### 2.2.1. Platform-Specific Tables (Inferred)
 
-These tables are the direct inputs for the consolidated tables. Their schema is inferred from the consolidation SQL scripts.
+These tables are the direct inputs for the consolidated tables. Their schema is inferred from the shape of the consolidated data; the SQL that performs the consolidation is part of the external pipeline, not this repo.
 
 -   **`linkedin_posts`** (`post_id`, `posted_at`, `num_likes`, `num_comments`, `num_reshares`, `is_video`)
 -   **`instagram_posts`** (`post_id`, `posted_at`, `num_likes`, `num_comments`, `is_video`)
@@ -86,9 +83,9 @@ These tables are the direct inputs for the consolidated tables. Their schema is 
 -   **`substack_profile`** (`date`, `num_followers`, `platform`, `data_type`)
 -   **`threads_profile`** (`date`, `num_followers`, `platform`, `data_type`)
 
-#### 2.2.2. Notion-Synced Tables
+#### 2.2.2. Notion-Synced Tables *(external reference — not owned by this repo)*
 
-These tables are synced from Notion databases, as specified in `notion/notion_database_list.json` where `"replication": true`.
+These tables are synced from Notion databases by the external ingestion pipeline (selection criteria and sync configuration live in that external system, not in this repo).
 
 **Common Table Structure**
 
