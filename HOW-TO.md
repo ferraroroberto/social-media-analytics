@@ -506,7 +506,7 @@ Now that you understand data collection and feature engineering, you're ready to
 **Key Concepts:**
 - **Abstract Base Class:** Defines what all models must do
 - **Inheritance:** Specific models (Random Forest, XGBoost) inherit common functionality
-- **MLflow Integration:** Tracks experiments and model versions
+- **MLflow:** *Scaffolded, not yet wired* — the `make run-mlflow` server starts, but no code in `BaseModel` (or elsewhere) currently logs experiments or model versions to it
 - **Feature Importance:** Understands which features matter most
 
 **The training process:**
