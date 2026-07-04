@@ -1,0 +1,90 @@
+%% docs/architecture.mmd — social-media-analytics's own internal structure.
+%% Hand-authored, not generated — companion to the fleet-wide convention
+%% established in ferraroroberto/fleet-config#256 (each repo carries its own
+%% internal-architecture diagram alongside the mechanically-aggregated
+%% fleet-wide map). Update this diagram in the same PR as any material
+%% structural change (a new entry point, a pipeline stage added/moved/removed,
+%% a script relocated). Not covered by any lint/test gate — kept correct by
+%% discipline, same anti-staleness contract as this repo's `.fleet.toml`
+%% `description` field. See this repo's own CLAUDE.md, "Internal architecture".
+
+flowchart TB
+  subgraph entry["Entry points"]
+    CLI["src/cli.py\ntrain / predict / analyze"]
+    API["src/api/prediction_api.py\nFastAPI, :8000"]
+    DASH["dash_app/app.py\nDash dashboard, :8050"]
+    CHECK["tools/supabase_connection_check.py\nstandalone connection diagnostic"]
+  end
+  DASH -->|HTTP requests via `requests`| API
+
+  subgraph data["src/data/ — ingestion"]
+    DB["database.py\nSupabaseClient: get_posts_data / get_profile_data"]
+    LOADER["data_loader.py\nDataLoader: preprocess, platform +\ncross-platform dataset assembly"]
+  end
+  LOADER --> DB
+  CHECK --> DB
+
+  subgraph features["src/features/ — feature engineering"]
+    FE["feature_engineering.py\nFeatureEngineer +\nadd_cross_platform_engagement_features (shared helper)"]
+    RANK["feature_ranking.py\nvariance / completeness / distribution\nranking helpers (demo-only)"]
+  end
+  LOADER -->|shared cross-platform aggregation math| FE
+
+  subgraph models["src/models/ — prediction models"]
+    BASE["base_model.py\nBaseModel (ABC): fit / evaluate /\nsave_model / load_model"]
+    PRED["prediction_models.py\nRandomForest / XGBoost / LightGBM / CatBoost /\nLinearRegression / Ridge / SVR / MLP / Ensemble\n+ create_model factory"]
+    PIPE["model_pipeline.py\nmodel zoo, leakage removal,\ntrain/eval orchestration (demo-only)"]
+  end
+  PRED --> BASE
+  PIPE --> PRED
+
+  subgraph support["src/ — shared support"]
+    CONST["constants.py\nPLATFORMS / CONTENT_TYPES canonical vocabulary"]
+    CONFIG["utils/config.py\nConfig: reads config/config.yaml,\nexpands ${VAR} / ${VAR:-default} placeholders"]
+  end
+  CONST --> CONFIG
+
+  CLI --> DB
+  CLI --> LOADER
+  CLI --> FE
+  CLI --> PRED
+  CLI --> CONFIG
+  CLI --> CONST
+
+  API --> DB
+  API --> LOADER
+  API --> FE
+  API --> PRED
+
+  LOADER --> CONST
+  FE --> CONST
+  DASH --> CONST
+
+  subgraph storage["Runtime artifacts (created at runtime, gitignored)"]
+    MODELS["models/*.joblib"]
+    DATADIR["data/raw · processed · external"]
+    LOGS["logs/"]
+  end
+  BASE -->|save_model / load_model| MODELS
+  LOADER -.-> DATADIR
+
+  subgraph ext["External dependencies"]
+    SUPABASE[("Supabase (Postgres)\nposts / profile tables")]
+    ENVFILE[".env\nSUPABASE_URL/KEY, API_*, DASHBOARD_*"]
+    YAML["config/config.yaml\ndata.platforms, data.content_types, paths.models"]
+    MLFLOW["MLflow\nscaffolded, not wired —\nserver starts, no code logs to it yet"]
+  end
+  DB --> SUPABASE
+  CONFIG --> ENVFILE
+  CONFIG --> YAML
+  MLFLOW -.->|not yet integrated| PIPE
+
+  subgraph tests["tests/ — unit tests + educational demos"]
+    UNIT["test_*.py\nfeature_ranking, model_pipeline, config,\ndata_loader, base_model encoding"]
+    DEMO["demo_feature_engineering.py · demo_predictive_modeling.py\ninteractive walkthroughs, not pytest suites"]
+  end
+  UNIT --> RANK
+  UNIT --> PIPE
+  UNIT --> CONFIG
+  DEMO --> RANK
+  DEMO --> PIPE

@@ -1,8 +1,12 @@
 # Ignore virtual environment directory
 .venv/
 
-# Ignore docs directory
-docs/
+# Ignore docs directory, except the hand-authored architecture diagram
+# (fleet-config#256 companion convention — must be tracked). Note: the
+# directory itself can't be excluded with a trailing "/" here, or git never
+# descends into it to see the negation below.
+docs/*
+!docs/architecture.mmd
 
 # Ignore config.json file and .env file in the process directory
 config.json
