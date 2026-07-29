@@ -25,3 +25,5 @@ supabase/.branches/_current_branch
 # Ignore .env file
 .env
 
+# Launcher scratch (ephemeral images/logs written by the tray launcher)
+.launcher-tmp/
